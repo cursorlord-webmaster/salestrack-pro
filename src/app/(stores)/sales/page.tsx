@@ -127,6 +127,7 @@ export default function SalesHistoryPage() {
     const mappedItems: CartItem[] = (items as SaleItemRecord[]).map((item) => ({
       productId: item.product_id,
       name: item.product_name,
+      sku: '',
       price: Number(item.unit_price),
       costPrice: Number(item.cost_price),
       qty: item.quantity,

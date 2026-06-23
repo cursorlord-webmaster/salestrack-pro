@@ -144,7 +144,7 @@ const { data: storeData } = await supabase
       return
     }
 
-    await logAudit('UPDATE', 'Password changed', 'settings', profile?.id)
+    await logAudit('UPDATE', 'Password changed', 'settings')
     toast.success('Password updated successfully')
     setCurrentPassword('')
     setNewPassword('')
@@ -180,7 +180,7 @@ async function saveSettings() {
     return
   }
 
-  await logAudit('UPDATE', 'Store settings updated', 'settings', profile.store_id)
+  await logAudit('UPDATE', 'Store settings updated', 'settings')
   setSettingsLoading(false)
   setShowSuccessModal(true)
 }

@@ -670,20 +670,7 @@ export default function ReportsPage() {
               <Grid horizontal />
               <Bar dataKey="amount" lineCap="round" fill="var(--chart-3)" fadedOpacity={0.3} />
               <BarXAxis />
-              <ChartTooltip
-                showCrosshair={false}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-white border border-slate-200 rounded px-3 py-2 shadow-lg">
-                        <p className="text-sm font-medium text-slate-900">{payload[0].payload.method}</p>
-                        <p className="text-sm text-slate-600">{formatNaira(Number(payload[0].value))}</p>
-                      </div>
-                    )
-                  }
-                  return null
-                }}
-              />
+              <ChartTooltip showCrosshair={false} />
             </BarChart>
           </CardContent>
         </Card>

@@ -58,7 +58,7 @@ const { error: profileError } = await supabaseAdmin
       return NextResponse.json({ error: profileError.message }, { status: 400 })
     }
 
-    if (profileError) return NextResponse.json({ error: profileError.message }, { status: 400 })
+	if (profileError) return NextResponse.json({ error: (profileError as any)?.message || 'Failed to create profile' }, { status: 400 })
 
     return NextResponse.json({ success: true, id: authData.user.id })
   } catch (err: any) {

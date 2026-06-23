@@ -171,7 +171,7 @@ export default function ClientLoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@store.com"
+                placeholder="Enter your account email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

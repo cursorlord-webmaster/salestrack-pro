@@ -22,6 +22,13 @@ const handleSearch = async () => {
   
   const { data: { user } } = await supabase.auth.getUser()
   
+    if (!user) {
+    console.error('No authenticated user found')
+    toast.error('Please log in again')
+    setLoading(false)
+    return
+  }
+  
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('store_id')

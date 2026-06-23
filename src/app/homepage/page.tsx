@@ -6,27 +6,28 @@ import { Button } from '@/components/ui/button'
 import { useEffect, useRef } from 'react'
 
 export default function Homepage() {
-  const trackRef = useRef<HTMLDivElement>(null)
+const trackRef = useRef<HTMLDivElement>(null)
 
-  // Testimonial carousel - same as HTML version
-  useEffect(() => {
-    const track = trackRef.current
-    if (!track) return
+// Testimonial carousel - same as HTML version
+useEffect(() => {
+const track = trackRef.current
+if (!track) return
 
     let position = 0
-    const speed = window.innerWidth < 768 ? 0.3 : 0.6
+const speed = window.innerWidth < 768 ? 0.3 : 0.6
 
-    function slide() {
-      position -= speed
-      if (position <= -track.scrollWidth / 2) {
-        position = 0
-      }
-      track.style.transform = `translateX(${position}px)`
-      requestAnimationFrame(slide)
-    }
-    const animation = requestAnimationFrame(slide)
-    return () => cancelAnimationFrame(animation)
-  }, [])
+function slide() {
+  if (!track) return
+  position -= speed
+  if (position <= -track.scrollWidth / 2) {
+    position = 0
+  }
+  track.style.transform = `translateX(${position}px)`
+  requestAnimationFrame(slide)
+}
+const animation = requestAnimationFrame(slide)
+return () => cancelAnimationFrame(animation)
+}, [])
 
   return (
     <>
@@ -494,7 +495,7 @@ export default function Homepage() {
       <section className="page-shell">
         <div className="mobile-highlight">
           <div className="mobile-icons">
-            📱 Optimized For Android & iPhone • 🖨 Clean Receipt Printing With Mini Bluetooth Printers
+            📱 Optimized For Android & iPhone • 🖨 Clean Receipt Printing - Works With Mini Bluetooth Printers
           </div>
 
           <h3>Run Your Entire Store From Your Phone</h3>

@@ -343,7 +343,7 @@ setTimeout(() => loadInventory(), 100)
       return
     }
 
-    logAudit("UPDATE", `Updated product: ${selectedProduct.name}`, "inventory", selectedProduct.id).catch(e =>
+    logAudit("UPDATE", `Updated product: ${selectedProduct.name} | ID: ${selectedProduct.id}`, "inventory").catch(e =>
       console.error('Audit failed:', e)
     )
     toast.success("Product updated successfully")
