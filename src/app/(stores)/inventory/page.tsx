@@ -289,8 +289,7 @@ if (error ||!newProduct) {
   toast.error("Failed to add product", { description: error?.message })
   return
 }
-
-logAudit("CREATE", `Added product: ${product.name}, Stock: ${product.quantity} ${product.base_unit}`, "inventory", newProduct.id).catch(e =>
+logAudit("CREATE", `Added product: ${product.name}, Stock: ${product.quantity} ${product.base_unit} | ID: ${newProduct.id}`, "inventory").catch(e =>
   console.error('Audit failed:', e)
 )
 toast.success("Product added successfully")
