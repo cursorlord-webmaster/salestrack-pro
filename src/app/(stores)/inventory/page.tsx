@@ -62,7 +62,8 @@ const GROCERY_CATEGORIES = [
   "Grains & Tubers",
   "Beverages",
   "Toiletries",
-  "Dairy Products & Eggs",
+  "Dairy Products",
+  "Protein & Meat",
   "Bottled Drinks",
   "Canned Drinks",
   "Alcoholic & Wine",
@@ -497,9 +498,9 @@ async function handleDeleteProduct() {
                     <TableCell className="text-slate-600 text-center">{item.supplier || '-'}</TableCell>
                     <TableCell className="text-center">
                       {item.isLowStock? (
-                        <Badge variant="destructive" className="rounded">Low Stock</Badge>
+                        <Badge className="rounded bg-red-600 hover:bg-red-600 text-white font-medium">Low Stock</Badge>
                       ) : (
-                        <Badge className="bg-green-100 text-green-800 rounded">In Stock</Badge>
+                        <Badge className="bg-green-100 text-green-800 rounded font-medium">In Stock</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
