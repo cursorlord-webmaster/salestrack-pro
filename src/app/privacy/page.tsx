@@ -1,17 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { Store } from 'lucide-react'
 import './privacy.css'
 
 export default function PrivacyPage() {
   return (
     <>
+      {/* LANDING HEADER */}
       <header className="landing-header">
         <div className="landing-header-inner">
           <div className="brand">
-            <Store className="h-7 w-7 text-white" />
-            <h1>SalesTrack Pro</h1>
+            <img 
+              src="/landing-logo.png" 
+              alt="SalesTrack Pro" 
+              className="h-20 w-auto object-contain"
+            />
           </div>
         </div>
       </header>
@@ -28,7 +31,7 @@ export default function PrivacyPage() {
             <li><strong>Your Store Workspace:</strong> Products, sales, and receipts exist only inside your store account</li>
             <li><strong>Technical Logs:</strong> IP address and timestamps are meant for login security and error diagnostics</li>
           </ul>
-          <p><strong>We do not access, view, or use your store’s inventory, sales, or customer data.</strong> Row-level security provided by Supabase cloud infrastructure, ensures each store can only access its own records.</p>
+          <p><strong>We cannot access, view, or use your store’s inventory, sales, or customer data.</strong> Row-level security provided by Supabase cloud infrastructure, ensures each store can only access its own records.</p>
           
           <h2>2. Data Ownership & Control</h2>
           <p>You own 100% of the data in your store account. SalesTrack Pro acts only as a technical service provider to run the software that powers your store while your full business / store data remains in a secure cloud server we subscribed to for robust security. No advertisers or third parties have access to your cloud secured data.</p>

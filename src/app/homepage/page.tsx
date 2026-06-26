@@ -3,31 +3,47 @@
 import Link from 'next/link'
 import { Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function Homepage() {
+const [mounted, setMounted] = useState(false)
 const trackRef = useRef<HTMLDivElement>(null)
 
-// Testimonial carousel - same as HTML version
 useEffect(() => {
-const track = trackRef.current
-if (!track) return
-
-    let position = 0
-const speed = window.innerWidth < 768 ? 0.3 : 0.6
-
-function slide() {
-  if (!track) return
-  position -= speed
-  if (position <= -track.scrollWidth / 2) {
-    position = 0
-  }
-  track.style.transform = `translateX(${position}px)`
-  requestAnimationFrame(slide)
-}
-const animation = requestAnimationFrame(slide)
-return () => cancelAnimationFrame(animation)
+  setMounted(true)
 }, [])
+
+useEffect(() => {
+  setMounted(true)
+}, [])
+
+useEffect(() => {
+  if (!mounted) return
+
+  const track = trackRef.current
+  if (!track) return
+
+  let position = 0
+  let animationId: number
+  const speed = window.innerWidth < 768? 0.3 : 0.6
+
+  const slide = () => {
+    if (!track) return
+    position -= speed
+    if (position <= -track.scrollWidth / 2) {
+      position = 0
+    }
+    track.style.transform = `translateX(${position}px)`
+    animationId = requestAnimationFrame(slide)
+  }
+
+  animationId = requestAnimationFrame(slide)
+  return () => cancelAnimationFrame(animationId)
+}, [mounted])
+
+if (!mounted) {
+    return <div className="min-h-screen bg-[#0f172a]" />
+  }
 
   return (
     <>
@@ -367,12 +383,15 @@ return () => cancelAnimationFrame(animation)
         }
       `}</style>
 
-      {/* LANDING HEADER */}
+{/* LANDING HEADER */}
       <header className="landing-header">
         <div className="landing-header-inner">
           <div className="brand">
-            <Store className="h-7 w-7 text-white" />
-            <h1>SalesTrack Pro</h1>
+            <img 
+              src="/landing-logo.png" 
+              alt="SalesTrack Pro" 
+              className="h-20 w-auto object-contain"
+            />
           </div>
         </div>
       </header>
@@ -566,7 +585,32 @@ return () => cancelAnimationFrame(animation)
             </div>
           </div>
         </div>
+		
+		    <div className="h-20 w-full block"></div>
+		
+		 {/* DEMO + PRICING CTA */}
+        <div className="w-full flex flex-col items-center gap-4 mt-16 px-5">
+          <a
+            href="https://wa.me/2349035984646?text=I%20need%20access%20to%20test%20SalesTrack%20Pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full max-w-[280px] bg-[var(--primary)] hover:bg-[var(--primary-dark)] hover:scale-105 text-white font-semibold px-8 py-4 rounded text-base transition-all text-center shadow-lg hover:shadow-xl"
+          >
+            Request Demo Access
+          </a>
+          <p className="text-gray-400 text-sm text-center max-w-md">
+            Chat with us on WhatsApp for instant access to our live demo store. Test all features before you grab your own store.
+          </p>
+
+          <Link href="/pricing" className="w-full max-w-[280px] mt-2">
+            <Button className="w-full bg-[#0f172a] hover:bg-gray-800 hover:scale-105 text-white font-semibold px-8 py-4 rounded text-base transition-all border border-gray-700 hover:border-gray-500 shadow-lg hover:shadow-xl">
+              View Pricing & Plans
+            </Button>
+          </Link>
+        </div>
+		
       </section>
+	  
 
       <footer className="landing-footer">
         <div className="footer-inner">

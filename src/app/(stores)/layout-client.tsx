@@ -121,8 +121,12 @@ async function handleLogout() {
       )}>
         {/* Header */}
         <div className="p-6 border-b border-slate-800 text-center">
-          <div className="flex items-center justify-center gap-2 mb-3.5 flex-wrap">
-            <h2 className="text-2xl font-bold text-slate-100 m-0 tracking-tight">SalesTrack Pro</h2>
+          <div className="flex items-center justify-center mb-3.5">
+            <img 
+              src="/landing-logo.png" 
+              alt="SalesTrack Pro" 
+              className="h-20 w-auto object-contain"
+            />
           </div>
           <div className="flex justify-center mb-2">
             <span 
@@ -139,6 +143,7 @@ async function handleLogout() {
             {store.name}
           </div>
         </div>
+
 
         {/* User Info */}
         <div className="px-6 py-4 border-b border-slate-800 text-center">

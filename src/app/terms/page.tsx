@@ -4,14 +4,18 @@ import Link from 'next/link'
 import { Store } from 'lucide-react'
 import './terms.css'
 
-export default function TermsPage() {
+export default function PrivacyPage() {
   return (
     <>
+      {/* LANDING HEADER */}
       <header className="landing-header">
         <div className="landing-header-inner">
           <div className="brand">
-            <Store className="h-7 w-7 text-white" />
-            <h1>SalesTrack Pro</h1>
+            <img 
+              src="/landing-logo.png" 
+              alt="SalesTrack Pro" 
+              className="h-20 w-auto object-contain"
+            />
           </div>
         </div>
       </header>

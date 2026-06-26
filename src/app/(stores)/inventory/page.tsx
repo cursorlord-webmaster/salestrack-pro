@@ -520,14 +520,13 @@ async function handleDeleteProduct() {
                         {canPerformAction('delete') && (
                           <Button
                             size="sm"
-                            variant="destructive"
                             onClick={() => {
                               setSelectedProduct(item)
                               setShowDeleteModal(true)
                             }}
-                            className="rounded"
+                            className="rounded bg-red-600 hover:bg-red-700 text-white border-0"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 text-white" />
                           </Button>
                         )}
                       </div>
@@ -602,14 +601,13 @@ async function handleDeleteProduct() {
                     {canPerformAction('delete') && (
                       <Button
                         size="sm"
-                        variant="destructive"
                         onClick={() => {
                           setSelectedProduct(item)
                           setShowDeleteModal(true)
                         }}
-                        className="rounded flex-1"
+                        className="rounded flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
                       >
-                        <Trash2 className="h-4 w-4 mr-1" /> Delete
+                        <Trash2 className="h-4 w-4 mr-1 text-white" /> Delete
                       </Button>
                     )}
                   </div>

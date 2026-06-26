@@ -1,4 +1,3 @@
-// src/app/(stores)/dashboard/page.tsx
 "use client"
 
 import { useEffect, useState } from "react"
@@ -36,6 +35,7 @@ type FastMover = {
   product_name: string
   qty: number
   revenue: number
+  profit: number
 }
 
 export default function DashboardPage() {
@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const [recentSales, setRecentSales] = useState<RecentSale[]>([])
   const [fastMovers, setFastMovers] = useState<FastMover[]>([])
   const [projectedProfit, setProjectedProfit] = useState(0)
-  const [totalStockValue, setTotalStockValue] = useState(0) // ADDED
+  const [totalStockValue, setTotalStockValue] = useState(0)
   const [totalProducts, setTotalProducts] = useState(0)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -57,49 +57,44 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Get store_id from profiles, not app_metadata
     const { data: profile } = await supabase
-    .from('profiles')
-    .select('store_id')
-    .eq('id', user.id)
-    .single()
+   .from('profiles')
+   .select('store_id')
+   .eq('id', user.id)
+   .single()
 
     if (!profile?.store_id) return
     const storeId = profile.store_id
 
-    // Get store settings for low_stock_threshold
     const { data: settings } = await supabase
-    .from('store_settings')
-    .select('low_stock_threshold')
-    .eq('store_id', storeId)
-    .single()
+   .from('store_settings')
+   .select('low_stock_threshold')
+   .eq('store_id', storeId)
+   .single()
 
     const lowStockThreshold = settings?.low_stock_threshold || 10
 
-    // Today's date range
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    // Today's sales
     const { data: todaySalesData } = await supabase
-    .from('sales')
-    .select('total, profit')
-    .eq('store_id', storeId)
-    .eq('is_voided', false)
-    .gte('created_at', today.toISOString())
-    .lt('created_at', tomorrow.toISOString())
+   .from('sales')
+   .select('total, profit')
+   .eq('store_id', storeId)
+   .eq('is_voided', false)
+   .gte('created_at', today.toISOString())
+   .lt('created_at', tomorrow.toISOString())
 
     const todayRevenue = todaySalesData?.reduce((sum, s) => sum + Number(s.total), 0) || 0
     const todayProfit = todaySalesData?.reduce((sum, s) => sum + Number(s.profit || 0), 0) || 0
 
-    // Low stock count - products where qty <= minimum_stock
     const { count: lowStockCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('store_id', storeId)
-    .lte('quantity', lowStockThreshold)
+   .from('products')
+   .select('*', { count: 'exact', head: true })
+   .eq('store_id', storeId)
+   .lte('quantity', lowStockThreshold)
 
     setStats({
       todaySales: todaySalesData?.length || 0,
@@ -108,60 +103,84 @@ export default function DashboardPage() {
       lowStockCount: lowStockCount || 0
     })
 
-    // Recent sales - last 10
     const { data: salesData } = await supabase
-    .from('sales')
-    .select('receipt_no, created_at, staff_name, total, profit')
-    .eq('store_id', storeId)
-    .eq('is_voided', false)
-    .order('created_at', { ascending: false })
-    .limit(10)
+   .from('sales')
+   .select('receipt_no, created_at, staff_name, total, profit')
+   .eq('store_id', storeId)
+   .eq('is_voided', false)
+   .order('created_at', { ascending: false })
+   .limit(10)
     setRecentSales(salesData || [])
 
-    // Fast movers - last 30 days
+    // Fast movers - last 30 days with profit calc
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     const { data: itemsData } = await supabase
-    .from('sale_items')
-    .select('product_name, quantity, total_price')
-    .eq('store_id', storeId)
-    .gte('created_at', thirtyDaysAgo.toISOString())
+  .from('sale_items')
+  .select('product_name, product_id, quantity, total_price')
+  .eq('store_id', storeId)
+  .gte('created_at', thirtyDaysAgo.toISOString())
 
-    if (itemsData) {
-      const productSales: Record<string, { qty: number; revenue: number }> = {}
+    if (itemsData && itemsData.length > 0) {
+      // Get unique product IDs - filter out nulls
+      const productIds = [...new Set(itemsData.map(i => i.product_id).filter(Boolean))]
+
+      // Only query products if we have IDs
+      let costMap: Record<string, number> = {}
+      if (productIds.length > 0) {
+        const { data: productsData } = await supabase
+      .from('products')
+      .select('id, cost_price')
+      .eq('store_id', storeId)
+      .in('id', productIds)
+
+        productsData?.forEach(p => {
+          costMap[p.id] = Number(p.cost_price) || 0
+        })
+      }
+
+      const productSales: Record<string, { qty: number; revenue: number; profit: number }> = {}
       itemsData.forEach(item => {
-        if (!productSales[item.product_name]) productSales[item.product_name] = { qty: 0, revenue: 0 }
+        if (!productSales[item.product_name]) {
+          productSales[item.product_name] = { qty: 0, revenue: 0, profit: 0 }
+        }
+
+        // Guard: if no product_id or cost_price, profit = 0
+        const costPrice = item.product_id? (costMap[item.product_id] || 0) : 0
+        const itemProfit = Number(item.total_price) - (costPrice * item.quantity)
+
         productSales[item.product_name].qty += item.quantity
         productSales[item.product_name].revenue += Number(item.total_price)
+        productSales[item.product_name].profit += itemProfit
       })
+
       const sorted = Object.entries(productSales)
-      .sort((a, b) => b[1].qty - a[1].qty)
-      .slice(0, 5)
-      .map(([product_name, data]) => ({ product_name,...data }))
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 5)
+    .map(([product_name, data]) => ({ product_name,...data }))
       setFastMovers(sorted)
+    } else {
+      setFastMovers([])
     }
 
-    // Total active products
     const { count } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('store_id', storeId)
+   .from('products')
+   .select('*', { count: 'exact', head: true })
+   .eq('store_id', storeId)
     setTotalProducts(count || 0)
 
-    // Projected inventory profit: sum((selling_price - cost_price) * quantity)
-    const { data: productsData } = await supabase
-    .from('products')
-    .select('quantity, cost_price, selling_price')
-    .eq('store_id', storeId)
-    .gt('quantity', 0)
+    const { data: allProductsData } = await supabase
+   .from('products')
+   .select('quantity, cost_price, selling_price')
+   .eq('store_id', storeId)
+   .gt('quantity', 0)
 
-    const profit = productsData?.reduce((sum, p) =>
+    const profit = allProductsData?.reduce((sum, p) =>
       sum + (Number(p.quantity) * (Number(p.selling_price) - Number(p.cost_price))), 0) || 0
     setProjectedProfit(profit)
 
-    // ADDED: Total Stock Value: sum(cost_price * quantity)
-    const stockValue = productsData?.reduce((sum, p) =>
+    const stockValue = allProductsData?.reduce((sum, p) =>
       sum + (Number(p.quantity) * Number(p.cost_price)), 0) || 0
     setTotalStockValue(stockValue)
 
@@ -211,9 +230,9 @@ export default function DashboardPage() {
       iconColor: 'text-red-600'
     },
     {
-      title: 'Total Stock Value', // CHANGED
-      value: formatNaira(totalStockValue), // CHANGED
-      icon: Coins, // CHANGED
+      title: 'Total Stock Value',
+      value: formatNaira(totalStockValue),
+      icon: Coins,
       bgColor: 'bg-amber-50',
       iconColor: 'text-amber-600'
     },
@@ -239,7 +258,7 @@ export default function DashboardPage() {
       iconColor: 'text-pink-700'
     },
     {
-      title: 'Total Stock Profit', // CHANGED
+      title: 'Total Stock Profit',
       value: formatNaira(projectedProfit),
       icon: HandCoins,
       bgColor: 'bg-emerald-50',
@@ -249,7 +268,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards Grid - Mobile: 1 col, Tablet: 2 col, Desktop: 4 col */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card, idx) => {
           const Icon = card.icon
@@ -271,9 +289,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Tables Grid - Mobile: stack, Desktop: 2 col */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Sales */}
         <Card className="bg-white border-slate-200 rounded">
           <CardHeader className="border-b border-slate-200 text-center">
             <CardTitle className="text-lg font-semibold text-slate-900">Recent Sales</CardTitle>
@@ -312,7 +328,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Fast Moving Products */}
         <Card className="bg-white border-slate-200 rounded">
           <CardHeader className="border-b border-slate-200 text-center">
             <CardTitle className="text-lg font-semibold text-slate-900">Fast Moving Products</CardTitle>
@@ -325,6 +340,7 @@ export default function DashboardPage() {
                     <TableHead className="text-slate-700 text-center">Product Name</TableHead>
                     <TableHead className="text-slate-700 text-center">Qty Sold</TableHead>
                     <TableHead className="text-slate-700 text-center">Revenue</TableHead>
+                    <TableHead className="text-slate-700 text-center">Profit</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -333,10 +349,11 @@ export default function DashboardPage() {
                       <TableCell className="font-medium text-slate-900 text-center">{product.product_name}</TableCell>
                       <TableCell className="text-slate-600 text-center">{product.qty}</TableCell>
                       <TableCell className="text-slate-900 text-center">{formatNaira(product.revenue)}</TableCell>
+                      <TableCell className="text-green-600 font-medium text-center">{formatNaira(product.profit)}</TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-slate-500 py-8">
+                      <TableCell colSpan={4} className="text-center text-slate-500 py-8">
                         No sales data yet
                       </TableCell>
                     </TableRow>

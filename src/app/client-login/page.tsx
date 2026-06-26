@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Store, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
+
 export default function ClientLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -142,25 +143,30 @@ export default function ClientLoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0f172a] p-4">
-      <Card className="w-full max-w-sm bg-white shadow-xl">
-        <CardHeader className="space-y-5 pb-4">
-          {/* Smaller, Slower Pulsing Store Icon */}
-          <div className="mx-auto flex h-12 w-12 animate-[pulse_3s_ease-in-out_infinite] items-center justify-center rounded-xl bg-[#1e3a8a]">
-            <Store className="h-6 w-6 text-white" />
-          </div>
-          
-          <div className="space-y-2 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-[#1e3a8a]">
-              SalesTrack Pro
-            </h1>
-            <p className="text-base font-bold text-gray-700">
-              Client Authorized Login
-            </p>
-          </div>
-        </CardHeader>
+      <Card className="w-full max-w-sm bg-white shadow-xl overflow-visible">
+<CardHeader className="pb-2 pt-6">
+  <div className="flex flex-col items-center gap-0">
+    <img 
+      src="/logo.png" 
+      alt="SalesTrack Pro Logo" 
+      width={120} 
+      height={120} 
+      className="object-contain animate-pulse -mb-1"
+    />
+    
+    <div className="text-center">
+      <h1 className="text-4xl font-extrabold tracking-tight text-[#1e3a8a] leading-none">
+        SalesTrack Pro
+      </h1>
+      <p className="text-base font-bold text-gray-700 leading-none mt-0.5">
+        Client Authorized Login
+      </p>
+    </div>
+  </div>
+</CardHeader>
         
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+        <CardContent className="pt-2">
+          <form onSubmit={handleLogin} className="space-y-3">
             <div className="space-y-1.5">
               <Label 
                 htmlFor="email" 
@@ -228,7 +234,7 @@ export default function ClientLoginPage() {
 </div>
 			
 			{/* Divider */}
-<div className="my-4 flex items-center text-center text-sm text-gray-500">
+<div className="my-2 flex items-center text-center text-sm text-gray-500">
   <div className="flex-1 border-b border-gray-200" />
   <span className="px-4 font-medium">Secure Store Access</span>
   <div className="flex-1 border-b border-gray-200" />
