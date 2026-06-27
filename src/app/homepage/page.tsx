@@ -111,6 +111,50 @@ if (!mounted) {
         .btn-primary:hover:not(:disabled) { 
           background: var(--primary-dark);
         }
+		
+.value-prop {
+  background: transparent;
+  padding: 20px 20px 0;
+  border-bottom: none;
+}
+
+.value-prop-inner {
+  max-width: calc(100% - 100px);
+  margin: 0 auto;
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  padding: 28px 32px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+}
+
+.value-prop h2 {
+  color: white;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.value-prop .highlight {
+  color: #eddb13;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .value-prop {
+    padding: 24px 20px;
+  }
+  .value-prop h2 {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .value-prop-inner {
+  max-width: calc(100% - 0px);
+  padding: 24px 20px;
+  border-radius: 6px;
+}
+}
 
         .login-cta {
           background: var(--gray-900);
@@ -395,6 +439,16 @@ if (!mounted) {
           </div>
         </div>
       </header>
+	  
+	  {/* VALUE PROP HERO */}
+<section className="value-prop">
+  <div className="value-prop-inner">
+<h2>
+  Track every sale in your store. Stop profit leaks and staff fraud.{' '}
+  <span className="highlight">Boost your store's productivity and performance</span> while you watch from anywhere!
+</h2>
+  </div>
+</section>
 
       {/* CLIENT LOGIN CTA */}
       <div className="login-cta">
