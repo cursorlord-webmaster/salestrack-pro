@@ -68,17 +68,25 @@ export default function PricingPage() {
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
                 <span className="text-sm md:text-base">Inventory + Low stock alerts</span>
               </li>
-			    <li className="flex items-start gap-3">
+			  <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">Per second display of full store activity</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">Daily sales & profit reports</span>
+                <span className="text-sm md:text-base">Fraud & Profit leaks prevention</span>
               </li>
 			  <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">24/7 live store activity monitor from any location</span>
+                <span className="text-sm md:text-base">Advanced sales audit & accounting capabilities</span>
+              </li>
+			  <li className="flex items-start gap-3">
+                <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm md:text-base">Real-time display of every sale, profits & losses</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm md:text-base">In-depth store performance reports - daily, weekly, monthly & yearly</span>
+              </li>
+			  <li className="flex items-start gap-3">
+                <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm md:text-base">Track live store operations 24/7 from any location</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
@@ -90,7 +98,7 @@ export default function PricingPage() {
               </li>
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">Email support</span>
+                <span className="text-sm md:text-base">24/7 Client Support</span>
               </li>
             </ul>
           </div>
@@ -162,7 +170,7 @@ export default function PricingPage() {
                 href="https://wa.me/2349035984646?text=I%20need%20help%20choosing%20a%20SalesTrack%20Pro%20plan"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-orange-400 hover:text-orange-300 font-semibold underline"
+                className="text-yellow-400 hover:text-yellow-300 font-semibold underline"
               >
                 Chat with us
               </a>

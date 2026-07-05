@@ -209,14 +209,14 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      title: 'Today Sales',
+      title: 'Sales Today',
       value: formatNaira(stats?.todayRevenue || 0),
       icon: ShoppingCart,
       bgColor: 'bg-blue-50',
       iconColor: 'text-blue-600'
     },
     {
-      title: 'Today Profit',
+      title: 'Profit Today',
       value: formatNaira(stats?.todayProfit || 0),
       icon: TrendingUp,
       bgColor: 'bg-green-50',

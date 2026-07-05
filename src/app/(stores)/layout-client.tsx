@@ -1,7 +1,9 @@
 // src/app/(stores)/layout-client.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { startOfWeek, subWeeks } from 'date-fns'
+import WeeklyBriefingModal from '@/components/WeeklyBriefingModal'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -11,6 +13,7 @@ import {
   Receipt,
   FileText,
   BarChart3,
+  TrendingUp,
   Users,
   Settings,
   LogOut,
@@ -22,6 +25,8 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { logAudit } from '@/lib/audit/logAudit'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
+import { format } from 'date-fns' // add this at top with other date-fns imports
+
 
 // SalesTrack modules - no expiry/batch per blueprint
 const MODULES = [
@@ -30,6 +35,7 @@ const MODULES = [
   { name: 'pos', label: 'POS / Sales', icon: ShoppingCart, href: '/pos' },
   { name: 'sales', label: 'Sales History', icon: Receipt, href: '/sales' },
   { name: 'reports', label: 'Reports', icon: BarChart3, href: '/reports' },
+  { name: 'analytics', label: 'Business Analytics', icon: TrendingUp, href: '/analytics' },
   { name: 'audit', label: 'Audit Trail', icon: FileText, href: '/audit' },
   { name: 'staff', label: 'Staff Management', icon: Users, href: '/staff' },
   { name: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
@@ -38,7 +44,7 @@ const MODULES = [
 // SalesTrack RBAC per your blueprint
 const PERMISSIONS = {
   store_owner: {
-    pages: ['dashboard', 'pos', 'inventory', 'sales', 'reports', 'audit', 'staff', 'settings'],
+    pages: ['dashboard', 'pos', 'inventory', 'sales', 'reports', 'analytics', 'audit', 'staff', 'settings'],
     actions: ['create', 'read', 'update', 'delete', 'export']
   },
   manager: {
@@ -75,9 +81,36 @@ interface StoreLayoutClientProps {
 
 export default function StoreLayoutClient({ children, profile, store }: StoreLayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showBriefing, setShowBriefing] = useState(false)
+  const [alertId, setAlertId] = useState<string | null>(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  
+useEffect(() => {
+  if (!profile || profile.role !== 'store_owner') return
+
+  const checkWeeklyBriefing = async () => {
+    const lastSunday = startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 0 })
+    const periodEnd = format(lastSunday, 'yyyy-MM-dd')
+
+    const { data: alert } = await supabase
+     .from('user_alerts')
+     .select('id')
+     .eq('user_id', profile.id)
+     .eq('alert_type', 'weekly_briefing')
+     .eq('period_end', periodEnd)
+     .is('seen_at', null)
+     .maybeSingle()
+
+    if (alert) {
+      setAlertId(alert.id)
+      setShowBriefing(true)
+    }
+  }
+
+  checkWeeklyBriefing()
+}, [profile?.id, profile?.role])
 
 async function handleLogout() {
   try {
@@ -100,6 +133,17 @@ async function handleLogout() {
   // Only sign out after audit is done
   await supabase.auth.signOut()
   router.push('/client-login')
+}
+
+const handleViewAnalytics = async () => {
+  if (alertId) {
+    await supabase
+     .from('user_alerts')
+     .update({ seen_at: new Date().toISOString() })
+     .eq('id', alertId)
+  }
+  setShowBriefing(false)
+  router.push('/analytics')
 }
 
   function canAccessPage(moduleName: string) {
@@ -176,7 +220,7 @@ async function handleLogout() {
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 text-center text-xs text-slate-500 leading-relaxed">
-          SalesTrack Pro<br />Powered by CursorLord Systems
+          SalesTrack Pro<br />Built & Powered by CursorLord Systems
         </div>
       </aside>
 
@@ -221,6 +265,12 @@ async function handleLogout() {
         </div>
       </main>
     </div>
+      {showBriefing && alertId && (
+        <WeeklyBriefingModal
+          ownerName={profile.full_name}
+          onViewAnalytics={handleViewAnalytics}
+        />
+      )}
     </>
   )
 }
