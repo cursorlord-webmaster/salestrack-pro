@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { Plus, Edit, Trash2, Loader2 } from "lucide-react"
 import { logAudit } from '@/lib/audit/logAudit'
 
 type Product = {
@@ -407,13 +407,21 @@ async function handleDeleteProduct() {
     }).format(amount)
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-slate-600">Loading inventory...</div>
+if (loading) {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center bg-background px-6">
+      <div className="flex flex-col items-center text-center space-y-5">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-800">
+            Securely retrieving stock levels, inventory records and total products …
+          </h2>
+        </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   const uniqueCategories = [...new Set(inventoryData.map(p => p.category).filter(Boolean) as string[])]
 

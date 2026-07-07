@@ -12,7 +12,8 @@ import {
   Users,
   User,
   HandCoins,
-  Coins
+  Coins,
+  Loader2
 } from "lucide-react"
 import { format } from "date-fns"
 
@@ -53,6 +54,7 @@ export default function DashboardPage() {
   }, [])
 
   async function loadDashboard() {
+	  console.time("Dashboard Load")
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -79,48 +81,59 @@ export default function DashboardPage() {
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const { data: todaySalesData } = await supabase
-   .from('sales')
-   .select('total, profit')
-   .eq('store_id', storeId)
-   .eq('is_voided', false)
-   .gte('created_at', today.toISOString())
-   .lt('created_at', tomorrow.toISOString())
-
-    const todayRevenue = todaySalesData?.reduce((sum, s) => sum + Number(s.total), 0) || 0
-    const todayProfit = todaySalesData?.reduce((sum, s) => sum + Number(s.profit || 0), 0) || 0
-
-    const { count: lowStockCount } = await supabase
-   .from('products')
-   .select('*', { count: 'exact', head: true })
-   .eq('store_id', storeId)
-   .lte('quantity', lowStockThreshold)
-
-    setStats({
-      todaySales: todaySalesData?.length || 0,
-      todayRevenue: todayRevenue,
-      todayProfit: todayProfit,
-      lowStockCount: lowStockCount || 0
-    })
-
-    const { data: salesData } = await supabase
-   .from('sales')
-   .select('receipt_no, created_at, staff_name, total, profit')
-   .eq('store_id', storeId)
-   .eq('is_voided', false)
-   .order('created_at', { ascending: false })
-   .limit(10)
-    setRecentSales(salesData || [])
-
     // Fast movers - last 30 days with profit calc
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const { data: itemsData } = await supabase
-  .from('sale_items')
-  .select('product_name, product_id, quantity, total_price')
-  .eq('store_id', storeId)
-  .gte('created_at', thirtyDaysAgo.toISOString())
+    // Run independent queries in parallel
+    const [
+      { data: todaySalesData },
+      { data: salesData },
+      { data: itemsData }
+    ] = await Promise.all([
+      supabase
+        .from('sales')
+        .select('total, profit')
+        .eq('store_id', storeId)
+        .eq('is_voided', false)
+        .gte('created_at', today.toISOString())
+        .lt('created_at', tomorrow.toISOString()),
+
+      supabase
+        .from('sales')
+        .select('receipt_no, created_at, staff_name, total, profit')
+        .eq('store_id', storeId)
+        .eq('is_voided', false)
+        .order('created_at', { ascending: false })
+        .limit(10),
+
+      supabase
+        .from('sale_items')
+        .select('product_name, product_id, quantity, total_price')
+        .eq('store_id', storeId)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+    ])
+
+    const todayRevenue =
+      todaySalesData?.reduce((sum, s) => sum + Number(s.total), 0) || 0
+
+    const todayProfit =
+      todaySalesData?.reduce((sum, s) => sum + Number(s.profit || 0), 0) || 0
+
+    const { count: lowStockCount } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('store_id', storeId)
+      .lte('quantity', lowStockThreshold)
+
+    setStats({
+      todaySales: todaySalesData?.length || 0,
+      todayRevenue,
+      todayProfit,
+      lowStockCount: lowStockCount || 0
+    })
+
+    setRecentSales(salesData || [])
 
     if (itemsData && itemsData.length > 0) {
       // Get unique product IDs - filter out nulls
@@ -183,7 +196,7 @@ export default function DashboardPage() {
     const stockValue = allProductsData?.reduce((sum, p) =>
       sum + (Number(p.quantity) * Number(p.cost_price)), 0) || 0
     setTotalStockValue(stockValue)
-
+	console.timeEnd("Dashboard Load")
     setLoading(false)
   }
 
@@ -199,13 +212,27 @@ export default function DashboardPage() {
     return format(new Date(dateStr), 'h:mm a')
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-slate-600">Loading dashboard...</div>
+if (loading) {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center bg-background px-6">
+      <div className="flex flex-col items-center text-center space-y-5">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-800">
+            Loading your business dashboard...
+          </h2>
+
+          <p className="text-slate-500 leading-relaxed">
+            Securely retrieving your latest
+            <br />
+            sales, inventory and store data.
+          </p>
+        </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   const statCards = [
     {

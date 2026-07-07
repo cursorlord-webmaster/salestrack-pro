@@ -51,13 +51,12 @@ export async function POST(req: NextRequest) {
   const periodStartStr = format(periodStart, 'yyyy-MM-dd')
   const periodEndStr = format(periodEnd, 'yyyy-MM-dd')
 
-  // 2. Fetch sales for period
+  // 2. Fetch sales for period - REMOVED status column
   const { data: sales, error: salesError } = await supabase
- .from('sales')
- .select(`
+.from('sales')
+.select(`
       id,
       created_at,
-      status,
       sale_items!inner(
         quantity,
         unit_price,
@@ -70,9 +69,9 @@ export async function POST(req: NextRequest) {
         )
       )
     `)
- .eq('store_id', store_id)
- .gte('created_at', `${periodStartStr}T00:00:00`)
- .lte('created_at', `${periodEndStr}T23:59:59`)
+.eq('store_id', store_id)
+.gte('created_at', `${periodStartStr}T00:00:00`)
+.lte('created_at', `${periodEndStr}T23:59:59`)
 
   if (salesError) {
     return NextResponse.json({ error: 'Failed to fetch sales: ' + salesError.message }, { status: 500 })
@@ -82,17 +81,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `No sales data for ${period_type}` }, { status: 404 })
   }
 
-  // Filter out voided sales for revenue calculations
-  const completedSales = sales.filter(s => s.status!== 'voided')
-  const voidedSales = sales.filter(s => s.status === 'voided')
-  const allItems = completedSales.flatMap(s => s.sale_items)
-  const voidedItems = voidedSales.flatMap(s => s.sale_items)
+  // All sales are valid since we don't have voided status
+  const allItems = sales.flatMap(s => s.sale_items)
+  const voidedItems: any[] = [] // No voided tracking yet
 
   // 3. Core metrics
   const revenue = allItems.reduce((sum, item) => sum + (Number(item.unit_price) * item.quantity), 0)
   const cogs = allItems.reduce((sum, item) => sum + (Number(item.cost_price) * item.quantity), 0)
   const profit = revenue - cogs
-  const profitMargin = revenue > 0? (profit / revenue) * 100 : 0
+  const profitOnEachSale = revenue > 0? (profit / revenue) * 100 : 0
 
   // 4. Category Profit Engine
   const categoryMap = new Map<string, { revenue: number; profit: number; units: number }>()
@@ -119,69 +116,94 @@ export async function POST(req: NextRequest) {
     naira_per_100: data.revenue > 0? Math.round((data.profit / data.revenue) * 100) : 0
   })).sort((a, b) => b.profit - a.profit)
 
-  // 5. REAL Business Health Score
-  const momentum = profitMargin > 15? 'Accelerating' : profitMargin > 8? 'Stable' : 'Declining'
-  const momentum_score = Math.min(10, Math.max(0, profitMargin / 2))
-  const risk_level = profitMargin < 5? 'High' : profitMargin < 12? 'Moderate' : 'Low'
-  const risk_score = Math.round(100 - (profitMargin * 4))
+  // 5. Business Health Score
+  const momentum = profitOnEachSale > 15? 'Accelerating' : profitOnEachSale > 8? 'Stable' : 'Declining'
+  const momentum_score = Math.min(10, Math.max(0, profitOnEachSale / 2))
+  const risk_level = profitOnEachSale < 5? 'High' : profitOnEachSale < 12? 'Moderate' : 'Low'
+  const risk_score = Math.round(100 - (profitOnEachSale * 4))
 
   const health_score = Math.min(100, Math.round(
-    (profitMargin * 2.5) + // 0-50 points for margin
-    (momentum === 'Accelerating'? 25 : momentum === 'Stable'? 15 : 0) + // 0-25 points
-    (risk_level === 'Low'? 25 : risk_level === 'Moderate'? 15 : 0) // 0-25 points
+    (profitOnEachSale * 2.5) +
+    (momentum === 'Accelerating'? 25 : momentum === 'Stable'? 15 : 0) +
+    (risk_level === 'Low'? 25 : risk_level === 'Moderate'? 15 : 0)
   ))
 
-  // 6. REAL What Is Killing My Profit
-  const profit_leaks: { item: string; reason: string; loss_naira: number }[] = []
+  // 6. What Is Killing Your Profit - removed voided sales section
+  const profit_leaks: { 
+  item: string
+  reason: string
+  loss_naira: number
+  items?: any[] 
+}[] = []
 
-  // 6a. Low Margin Items - items sold below 15% margin
-  const lowMarginItems = allItems.filter(item => {
-    const margin = (Number(item.unit_price) - Number(item.cost_price)) / Number(item.unit_price) * 100
-    return margin < 15
+  // 6a. Items With Small Profit
+  const lowProfitItemDetails: {
+    name: string
+    cost_price: number
+    unit_price: number
+    quantity: number
+    profit_per_unit: number
+    total_loss: number
+  }[] = []
+
+  let lowProfitLoss = 0
+
+  allItems.forEach(item => {
+    const costPrice = Number(item.cost_price)
+    const unitPrice = Number(item.unit_price)
+    const qty = item.quantity
+    const profitPerUnit = unitPrice - costPrice
+    const profitPerSale = unitPrice > 0 ? (profitPerUnit / unitPrice) * 100 : 0
+
+    if (profitPerSale < 15 && profitPerUnit > 0) {
+      const actualProfit = profitPerUnit * qty
+      const targetProfit = unitPrice * qty * 0.15
+      const lossForItem = Math.max(0, targetProfit - actualProfit)
+      
+      lowProfitLoss += lossForItem
+
+      lowProfitItemDetails.push({
+        name: item.products?.name || 'Unknown Item',
+        cost_price: costPrice,
+        unit_price: unitPrice,
+        quantity: qty,
+        profit_per_unit: Number(profitPerUnit.toFixed(2)),
+        total_loss: Number(lossForItem.toFixed(2))
+      })
+    }
   })
-  const lowMarginLoss = lowMarginItems.reduce((sum, item) => {
-    const actualProfit = (Number(item.unit_price) - Number(item.cost_price)) * item.quantity
-    const targetProfit = Number(item.unit_price) * item.quantity * 0.15 // 15% target
-    return sum + Math.max(0, targetProfit - actualProfit)
-  }, 0)
 
-  if (lowMarginLoss > 0) {
+  if (lowProfitLoss > 0) {
+    // Sort worst offenders first
+    lowProfitItemDetails.sort((a, b) => b.total_loss - a.total_loss)
+    
     profit_leaks.push({
-      item: 'Low Margin Items',
-      reason: `${lowMarginItems.length} items sold below 15% margin`,
-      loss_naira: Math.round(lowMarginLoss)
+      item: 'Items With Small Profit',
+      reason: `${lowProfitItemDetails.length} items sold with less than ₦15 profit on each ₦100 sale`,
+      loss_naira: Math.round(lowProfitLoss),
+      items: lowProfitItemDetails.slice(0, 20) // NEW: Cap at 20 items
     })
   }
 
-  // 6b. Voided Sales
-  const voidedLoss = voidedItems.reduce((sum, item) => sum + (Number(item.unit_price) * item.quantity), 0)
-  if (voidedLoss > 0) {
-    profit_leaks.push({
-      item: 'Voided Sales',
-      reason: `${voidedSales.length} transactions voided this period`,
-      loss_naira: Math.round(voidedLoss)
-    })
-  }
-
-  // 6c. Dead Stock - inventory not sold in 90 days
+  // 6b. Dead Stock
   const ninetyDaysAgo = format(subDays(now, 90), 'yyyy-MM-dd')
   const { data: deadStock } = await supabase
-   .from('inventory')
-   .select('quantity, cost_price, products(name)')
-   .eq('store_id', store_id)
-   .lt('last_sale_date', ninetyDaysAgo)
-   .gt('quantity', 0)
+ .from('inventory')
+ .select('quantity, cost_price, products(name)')
+ .eq('store_id', store_id)
+ .lt('last_sale_date', ninetyDaysAgo)
+ .gt('quantity', 0)
 
   const deadStockValue = deadStock?.reduce((sum, item) => sum + (Number(item.cost_price) * item.quantity), 0) || 0
   if (deadStockValue > 0) {
     profit_leaks.push({
-      item: 'Slow Moving Stock',
-      reason: `${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(deadStockValue)} tied in dead stock`,
-      loss_naira: Math.round(deadStockValue * 0.3) // 30% of value as opportunity cost
+      item: 'Goods Not Selling',
+      reason: `${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(deadStockValue)} of goods have not sold in 3 months`,
+      loss_naira: Math.round(deadStockValue * 0.3)
     })
   }
 
-  // 7. REAL Opportunity Value = sum of all leaks
+  // 7. Opportunity Value
   const opportunity_value = profit_leaks.reduce((sum, leak) => sum + leak.loss_naira, 0)
 
   // 8. Projections
@@ -210,20 +232,85 @@ export async function POST(req: NextRequest) {
                       period_type === '3m'? 'Last 3 months' :
                       period_type === '6m'? 'Last 6 months' : 'Last year'
 
-  const ceo_briefing = `${periodLabel} you generated ${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(revenue)} in revenue with ${profitMargin.toFixed(1)}% margin. Your top category is ${category_profit[0]?.category || 'N/A'} contributing ₦${category_profit[0]?.naira_per_100 || 0} profit per ₦100 sold. Business momentum is ${momentum}.`
+// 9. AI Briefing with no "margin" word
+const aiPrompt = `
+You are talking to a Nigerian shop owner who may not have finished school.
+Use very simple words. Never use "margin". Say "profit on each sale" or "profit per ₦100 sold".
 
-  const insights = category_profit.length > 0? [
-    {
-      type: 'category',
-      message: `${category_profit[0].category} delivers ${category_profit[0].margin_percent.toFixed(1)}% margin (₦${category_profit[0].naira_per_100} profit per ₦100 sold). Focus inventory here.`,
-      impact_naira: Math.round(category_profit[0].profit * 0.2)
+Data for ${periodLabel}:
+- Total money made: ₦${revenue.toLocaleString()}
+- Total profit: ₦${profit.toLocaleString()}
+- Profit on each sale: ${profitOnEachSale.toFixed(1)}%
+- Top category: ${category_profit[0]?.category || 'None'}
+- Profit per ₦100 from top category: ₦${category_profit[0]?.naira_per_100 || 0}
+- Business is: ${momentum}
+- Risk: ${risk_level}
+- Money being lost: ₦${opportunity_value.toLocaleString()}
+
+Task 1: Write "ceo_briefing" in 4 sentences. Explain money made, profit on each sale, top category, and one advice.
+Task 2: Write "insights" array with 1-2 items. Each needs message + impact_naira. Make message simple: "Sell more X because you make ₦Y profit on every ₦100 sold"
+
+Return JSON only: {"ceo_briefing": "...", "insights": [{"message": "...", "impact_naira": 0}]}
+`
+
+let ceo_briefing = `${periodLabel} you made ${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(revenue)}. Your profit on each sale was ${profitOnEachSale.toFixed(1)}%. Your business is ${momentum.toLowerCase()}.`
+let insights: any[] = []
+
+try {
+  const openaiKey = process.env.OPENAI_API_KEY
+  if (openaiKey) {
+    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: aiPrompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.3
+      })
+    })
+
+    if (aiRes.ok) {
+      const aiData = await aiRes.json()
+      const parsed = JSON.parse(aiData.choices[0].message.content)
+      ceo_briefing = parsed.ceo_briefing || ceo_briefing
+      insights = Array.isArray(parsed.insights)? parsed.insights.map((i: any) => ({ type: 'ai',...i })) : []
     }
-  ] : []
+  }
+} catch (e) {
+  console.error('AI briefing failed:', e)
+}
 
-  // 9. Upsert with REAL data - null if no data
+// FALLBACK: Runs if AI failed OR returned empty insights
+if (insights.length === 0) {
+  if (category_profit.length > 0) {
+    insights = [{
+      type: 'category',
+      message: `${category_profit[0].category} gives you ₦${category_profit[0].naira_per_100} profit on every ₦100 sold. Keep it in stock.`,
+      impact_naira: Math.round(category_profit[0].profit * 0.2)
+    }]
+  } else if (profit > 0) {
+    insights = [{
+      type: 'profit',
+      message: `You made ₦${profit.toLocaleString()} profit at ${profitOnEachSale.toFixed(1)}% profit on each sale. Aim for 15%+ to grow faster.`,
+      impact_naira: Math.round(revenue * 0.15 - profit)
+    }]
+  } else {
+    insights = [{
+      type: 'sales',
+      message: `You had ${allItems.length} sales this period. Add cost prices to track profit and unlock insights.`,
+      impact_naira: 0
+    }]
+  }
+}
+
+  // 10. Upsert
   const { data: snapshot, error } = await supabase
- .from('business_analytics_snapshots')
- .upsert({
+.from('business_analytics_snapshots')
+.upsert({
       store_id,
       period_type,
       period_start: periodStartStr,
@@ -244,8 +331,8 @@ export async function POST(req: NextRequest) {
       health_score,
       profit_leaks: profit_leaks.length > 0? profit_leaks : null
     }, { onConflict: 'store_id,period_type,period_start' })
- .select()
- .single()
+.select()
+.single()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

@@ -6,8 +6,18 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { usePosStore } from '@/lib/pos/usePosStore'
+import { Loader2 } from 'lucide-react'
 
-export function CartSummary({ onCheckout }: { onCheckout: () => void }) {
+type CartSummaryProps = {
+  onCheckout: () => void
+  isProcessing: boolean
+}
+
+export function CartSummary({
+  onCheckout,
+  isProcessing
+}: CartSummaryProps) {
+	
   const { cart, discount, setDiscount, paymentType, setPaymentType, subtotal, total } = usePosStore()
 
   const subtotalAmount = subtotal()
@@ -59,14 +69,25 @@ export function CartSummary({ onCheckout }: { onCheckout: () => void }) {
         </Select>
       </div>
 
-      <Button
-        className="w-full"
-        size="lg"
-        disabled={cart.length === 0 || totalAmount <= 0}
-        onClick={onCheckout}
-      >
-        Checkout ₦{totalAmount.toLocaleString()}
-      </Button>
+<Button
+  className="w-full"
+  size="lg"
+  disabled={
+    cart.length === 0 ||
+    totalAmount <= 0 ||
+    isProcessing
+  }
+  onClick={onCheckout}
+>
+  {isProcessing ? (
+    <>
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      Finalizing sale... please wait.
+    </>
+  ) : (
+    <>Checkout ₦{totalAmount.toLocaleString()}</>
+  )}
+</Button>
     </div>
   )
 }

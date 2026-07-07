@@ -83,7 +83,10 @@ function PosPageContent() {
               <CardTitle className="text-center">Summary</CardTitle>
             </CardHeader>
             <CardContent>
-              <CartSummary onCheckout={handleCheckout} />
+              <CartSummary
+                onCheckout={handleCheckout}
+                isProcessing={checkout.isPending}
+              />
             </CardContent>
           </Card>
         </div>
