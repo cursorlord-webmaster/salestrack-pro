@@ -34,7 +34,18 @@ type Snapshot = {
   insights: { type: string; message: string; impact_naira: number }[]
   category_profit?: { category: string; revenue: number; profit: number; margin_percent: number; units_sold: number; naira_per_100: number }[]
   health_score?: number
-  profit_leaks?: { item: string; reason: string; loss_naira: number }[]
+  profit_leaks?: { 
+    item: string; 
+    reason: string; 
+    loss_naira: number; 
+    items?: {
+      name: string;
+      cost_price: number;
+      unit_price: number;
+      quantity: number;
+      total_loss: number;
+    }[];
+  }[]
 }
 
 const PERIOD_LABELS: Record<PeriodType, string> = {
@@ -629,7 +640,9 @@ export default function AnalyticsPage() {
       </div>
       <p className="text-xs text-blue-800 max-w-3xl">
 The above forecasts are based on your store’s current sales momentum. If your sales continue exactly like they are today, these are the revenue and profit you’ll likely see 
-in 3, 6, and 12 months. If sales go up or down, the figures will change. But what you see are the exact forecasts based on the CURRENT sales records.
+in 3, 6, and 12 months. If sales go up or down, the figures will change. But what you are seeing are the exact forecasts based on the CURRENT sales records. 
+Formula Used: Daily Average = Total Revenue ÷ Number of Days in the Period.
+Therefore Months Forecast = Daily Average × 30, 60 and 90 days
       </p>
     </div>
   </CardContent>

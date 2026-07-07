@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   // 4. Category Profit Engine
   const categoryMap = new Map<string, { revenue: number; profit: number; units: number }>()
   allItems.forEach(item => {
-    const categoryName = item.products?.categories?.name || 'Uncategorized'
+    const categoryName = (item.products as any)?.categories?.name || 'Uncategorized'
     const itemRevenue = Number(item.unit_price) * item.quantity
     const itemProfit = (Number(item.unit_price) - Number(item.cost_price)) * item.quantity
 
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       lowProfitLoss += lossForItem
 
       lowProfitItemDetails.push({
-        name: item.products?.name || 'Unknown Item',
+        name: (item.products as any)?.name || 'Unknown Item',
         cost_price: costPrice,
         unit_price: unitPrice,
         quantity: qty,
