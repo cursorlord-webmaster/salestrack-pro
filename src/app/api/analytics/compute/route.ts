@@ -275,9 +275,20 @@ try {
 
     if (aiRes.ok) {
       const aiData = await aiRes.json()
-      const parsed = JSON.parse(aiData.choices[0].message.content)
-      ceo_briefing = parsed.ceo_briefing || ceo_briefing
-      insights = Array.isArray(parsed.insights)? parsed.insights.map((i: any) => ({ type: 'ai',...i })) : []
+      const rawContent = aiData.choices[0]?.message?.content
+      if (!rawContent || rawContent.trim() === "" || rawContent === "{}") {
+        throw new Error('OpenAI returned an empty JSON wrapper string')
+      }
+
+      const parsed = JSON.parse(rawContent)
+      
+      // Strict validation: if fields are empty, undefined, or wrong shapes, drop to fallback
+      if (!parsed.ceo_briefing || !parsed.insights || !Array.isArray(parsed.insights) || parsed.insights.length === 0) {
+        throw new Error('OpenAI JSON layout does not contain valid content values')
+      }
+
+      ceo_briefing = parsed.ceo_briefing
+      insights = parsed.insights.map((i: any) => ({ type: 'ai', ...i }))
     }
   }
 } catch (e) {

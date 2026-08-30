@@ -89,9 +89,43 @@ const GROCERY_CATEGORIES = [
 ]
 
 const UNIT_OPTIONS = [
-  "piece", "cup", "kg", "g", "litre", "ml", "pack", "packet", "carton",
+  "pc", "cup", "jar", "can", "kg", "g", "litre", "ml", "pack", "packet", "carton",
   "crate", "bag", "tuber", "roll", "bundle", "bottle", "sachet", "tin", "wrap"
 ]
+
+// FIX: Plural helper - add after UNIT_OPTIONS
+const PLURAL_MAP: Record<string, string> = {
+  pc: "Pcs",
+  cup: "Cups",
+  jar: "Jars",
+  can: "Cans",
+  kg: "Kg",
+  g: "g",
+  litre: "Litres",
+  ml: "ml",
+  pack: "Packs",
+  packet: "Packets",
+  carton: "Cartons",
+  crate: "Crates",
+  bag: "Bags",
+  tuber: "Tubers",
+  roll: "Rolls",
+  bundle: "Bundles",
+  bottle: "Bottles",
+  sachet: "Sachets",
+  tin: "Tins",
+  wrap: "Wraps",
+}
+
+function formatStock(quantity: number, unit: string) {
+  if (!unit) return `${quantity}`
+  const lower = unit.toLowerCase()
+  const plural = PLURAL_MAP[lower]
+  if (quantity === 1) {
+    return `${quantity} ${unit}`
+  }
+  return `${quantity} ${plural || unit + 's'}`
+}
 
 export default function InventoryPage() {
   const [inventoryData, setInventoryData] = useState<InventoryItem[]>([])
@@ -488,7 +522,7 @@ if (loading) {
                     <TableCell className="font-medium text-slate-900 text-center">{item.name}</TableCell>
                     <TableCell className="text-slate-600 text-center">{item.category || '-'}</TableCell>
                     <TableCell className="text-slate-900 text-center font-semibold">
-                      {item.quantity} {item.base_unit}
+                      {formatStock(item.quantity, item.base_unit)}
                     </TableCell>
                     <TableCell className="text-slate-600 text-center">
                       {formatNaira(item.unit_cost)}/{item.base_unit}
@@ -569,7 +603,7 @@ if (loading) {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <span className="text-slate-600">Stock</span>
-                      <span className="text-slate-900 font-semibold">{item.quantity} {item.base_unit}</span>
+                      <span className="text-slate-900 font-semibold">{formatStock(item.quantity, item.base_unit)}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <span className="text-slate-600">Unit Cost</span>

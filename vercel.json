@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/analytics/compute-all-stores",
+      "schedule": "1 0 * * 1"
+    }
+  ]
+}
