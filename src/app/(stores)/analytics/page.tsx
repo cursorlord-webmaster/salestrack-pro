@@ -257,7 +257,7 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col items-center gap-4">
         <div className="text-center">
-         <h2 className="text-xl font-semibold text-slate-900">Your Personal Investment Consultant</h2>
+         <h2 className="text-xl font-semibold text-slate-900">Your Weekly Retail Analyst & Business Advisor!</h2>
           <p className="text-sm text-slate-600 mt-1">{periodLabel} • Updated Sunday 11:59pm</p>
         </div>
         <Select value={selectedPeriod} onValueChange={(v: PeriodType) => setSelectedPeriod(v)}>

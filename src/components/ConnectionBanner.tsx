@@ -31,7 +31,7 @@ export function ConnectionBanner() {
       <div className="flex items-center justify-center gap-2 py-3 px-4">
         <WifiOff className="h-4 w-4 animate-pulse" />
         <span className="font-medium text-sm">
-          Connection to your private cloud database & server is lost. Your internet connection or data is unavailable. Fix it to restore access to your database.
+          Connection to your private cloud database & server is lost. You do not have an active internet connection. Fix it to restore access to your database and proceed.
         </span>
       </div>
     </div>

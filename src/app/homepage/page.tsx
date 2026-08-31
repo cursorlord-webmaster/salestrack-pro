@@ -444,8 +444,8 @@ if (!mounted) {
 <section className="value-prop">
   <div className="value-prop-inner">
 <h2>
-  Track every sale in your store. Stop profit leaks and staff fraud.{' '}
-  <span className="highlight">Boost your store's productivity and performance</span> while you watch from anywhere!
+  Track every sale in your store. Stop profit leaks & staff fraud.{' '}
+  <span className="highlight">Boost your store's productivity & performance</span> while you monitor from any location!
 </h2>
   </div>
 </section>
