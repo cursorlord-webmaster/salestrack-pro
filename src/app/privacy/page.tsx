@@ -22,45 +22,90 @@ export default function PrivacyPage() {
       <div className="legal-container">
         <div className="legal-box">
           <h1>Privacy Policy</h1>
-          <p className="updated">Last Updated: June 23, 2026</p>
+          <p className="updated">Last Updated: September 11, 2026 | Version: 1.0</p>
+          <p className="intro">SalesTrack Pro is built and operated by CursorLord Systems. This Privacy Policy explains how information is handled when you use SalesTrack Pro.</p>
 
-          <h2>1. How Your Data Is Handled</h2>
-          <p>SalesTrack Pro is built on a multi-tenant architecture. Each store operates in its own isolated workspace:</p>
+          <h2>1. Information We Handle</h2>
+          <p>Depending on how you use SalesTrack Pro, the service may process:</p>
           <ul>
-            <li><strong>Your Account:</strong> Username, email, and encrypted password used only for login</li>
-            <li><strong>Your Store Workspace:</strong> Products, sales, and receipts exist only inside your store account</li>
-            <li><strong>Technical Logs:</strong> IP address and timestamps are meant for login security and error diagnostics</li>
+            <li>Account information such as name, email address and login information.</li>
+            <li>Store information such as business name, address and contact details.</li>
+            <li>Product, inventory, sales, receipt and business records entered into your store.</li>
+            <li>Staff account information created by the Store Owner.</li>
+            <li>Customer information entered into the system by the Merchant.</li>
+            <li>Technical information such as IP address, browser/device information, timestamps and security or diagnostic records.</li>
+            <li>Information contained in support requests or communications with CursorLord Systems.</li>
           </ul>
-          <p><strong>We cannot access, view, or use your store’s inventory, sales, or customer data.</strong> Row-level security provided by Supabase cloud infrastructure, ensures each store can only access its own records.</p>
-          
-          <h2>2. Data Ownership & Control</h2>
-          <p>You own 100% of the data in your store account. SalesTrack Pro acts only as a technical service provider to run the software that powers your store while your full business / store data remains in a secure cloud server we subscribed to for robust security. No advertisers or third parties have access to your cloud secured data.</p>
-          
-          <h2>3. Data Storage & Security</h2>
-          <p>SalesTrack Pro runs on Supabase, a secure cloud infrastructure. Industry-standard protections include:</p>
+          <p>SalesTrack Pro only requires information reasonably necessary to provide, secure and maintain the service.</p>
+
+          <h2>2. Your Business Data</h2>
+          <p>The Merchant retains its rights to the business information entered into its SalesTrack Pro account.</p>
+          <p>The Software processes this information to provide its functions, including sales recording, inventory management, reporting, analytics, staff management, audit records and related services.</p>
+          <p><strong>We do not sell your business data or use your store&apos;s business records for advertising purposes.</strong></p>
+
+          <h2>3. Multi-Tenant Data Isolation</h2>
+          <p>The Software uses a multi-tenant architecture in which each store operates within its own data scope.</p>
+          <p>Database-level access controls, including Row Level Security (RLS), are used to restrict access to records belonging to other stores.</p>
+          <p>Your store data is intended to remain accessible only within the authorized account and roles associated with that store.</p>
+
+          <h2>4. Account & Authentication Security</h2>
+          <p>SalesTrack Pro uses Supabase infrastructure for authentication and database services.</p>
+          <p>Passwords are handled through Supabase cloud authentication system and are not stored in the Software as readable plain-text passwords.</p>
+          <p>Store Owners are responsible for protecting their login credentials and for properly managing staff accounts and permissions.</p>
+
+          <h2>5. Technical & Security Records</h2>
+          <p>For security, authentication, troubleshooting and accountability purposes, the Software may record technical information such as:</p>
           <ul>
-            <li><strong>Encryption:</strong> All data encrypted at rest and in transit via SSL/TLS</li>
-            <li><strong>Tenant Isolation:</strong> Database-level security ensures Store A cannot access Store B’s records, and we as providers cannot view them</li>
-            <li><strong>Backups:</strong> Automated daily backups are performed by our infrastructure provider for disaster recovery</li>
-            <li><strong>Authentication:</strong> Passwords are hashed and never stored in plain text</li>
+            <li>IP address</li>
+            <li>Date and time of activity</li>
+            <li>Browser or device information</li>
+            <li>Login and authentication events</li>
+            <li>Software acceptance records</li>
+            <li>Relevant system and diagnostic events</li>
           </ul>
-          <p>You are responsible for keeping your login credentials confidential and managing staff access within your store.</p>
-          
-          <h2>4. Service Providers</h2>
-          <p>Your account runs on Supabase infrastructure. We do not use third-party analytics, trackers, or advertising networks.</p>
-          <p>SalesTrack Pro loads Font Awesome icons from cdnjs.cloudflare.com. No personal or business data is sent to this CDN.</p>
-          
-          <h2>5. Data Retention & Deletion</h2>
-          <p>Your store data is retained as long as your account is active. As the store owner, you may request account deletion and full data removal by contacting contact@cursorlordsystems.com. Upon verified request from the account owner, all associated records will be permanently deleted within 30 days.</p>
-          
-          <h2>6. Authorized Users Only</h2>
-          <p>SalesTrack Pro is a business tool for store owners and their authorized staff. Account creation and store management must be performed by adults. Store owners are responsible for managing staff access and ensuring all users comply with this policy.</p>
+          <p>Where an account owner electronically accepts the SalesTrack Pro End User License Agreement, the associated acceptance record may be retained as evidence of that acceptance.</p>
 
-          <h2>7. Changes to Policy</h2>
-          <p>We may update this policy to reflect improvements to the service. Continued use after changes constitutes acceptance. Check "Last Updated" date.</p>
+          <h2>6. Cloud Infrastructure</h2>
+          <p>SalesTrack Pro uses Supabase as part of its cloud infrastructure for authentication, database storage and related services.</p>
+          <p>Data transmitted between your device and the service is protected using standard encrypted network connections.</p>
 
-          <h2>8. Contact</h2>
-          <p>For privacy questions or data deletion requests: contact@cursorlordsystems.com</p>
+          <h2>7. Reports, Exports & Backups</h2>
+          <p>SalesTrack Pro saves the stores business records and data onto each Merchant's dedicated cloud database on supabase servers during normal operation.</p>
+          <p>The Merchant should periodically download and retain important reports, records or other available exports for its own business continuity and record-keeping purposes.</p>
+          <p>Reports and available exports are provided as part of the software&apos;s business-management functionality.</p>
+
+          <h2>8. Personal Data Entered by the Merchant</h2>
+          <p>A Merchant may enter personal information relating to employees, customers or other individuals into SalesTrack Pro.</p>
+          <p>The Merchant is responsible for ensuring that it has the appropriate authority or lawful basis to collect and use such information and for using the system in accordance with applicable Nigerian data-protection requirements.</p>
+
+          <h2>9. Data Retention & Deletion</h2>
+          <p>Store information is retained while the account remains active or for as long as reasonably necessary to provide the service, comply with legal obligations, resolve disputes, maintain security records or enforce applicable agreements.</p>
+          <p>A Store Owner or Merchant may request account closure or deletion of eligible store records by contacting:</p>
+          <p><strong>contact@cursorlordsystems.com</strong></p>
+          <p>Requests will be verified before any account or data deletion is performed.</p>
+          <p>Certain records may need to be retained where required by law, for legitimate security purposes, or to establish or defend legal claims.</p>
+
+          <h2>10. Third-Party Services</h2>
+          <p>SalesTrack Pro relies on selected third-party infrastructure and services necessary to operate the application.</p>
+          <p>These include cloud hosting, database, authentication, security, communications or other technical service providers.</p>
+          <p>Such providers may process information only as necessary for the services they provide to SalesTrack Pro.</p>
+          <p>SalesTrack Pro may also load third-party web resources required for the application&apos;s interface, such as Font Awesome resources delivered through Cloudflare&apos;s CDN.</p>
+
+          <h2>11. Data Subject Rights</h2>
+          <p>Where applicable under Nigerian data-protection law, individuals may have rights concerning their personal data, including rights relating to access, correction, deletion, restriction or other lawful requests.</p>
+          <p>Requests concerning personal data handled through a Merchant&apos;s store should normally be directed first to the relevant Merchant, who controls the business purpose for which that information was collected.</p>
+          <p>Privacy requests may also be sent to: <strong>contact@cursorlordsystems.com</strong></p>
+
+          <h2>12. Changes to This Privacy Policy</h2>
+          <p>We may update this Privacy Policy when the service, technology, legal requirements or data-handling practices change.</p>
+          <p>The latest version will be published on this page with its updated date and version number.</p>
+          <p>Where appropriate, material changes may also be communicated through the service or by other reasonable means.</p>
+
+          <h2>13. Contact</h2>
+          <p>For privacy questions, data requests or account-data deletion requests:</p>
+          <p><strong>CursorLord Systems</strong><br/>Email: contact@cursorlordsystems.com</p>
+          <br/>
+          <p><strong>SalesTrack Pro<br/>Built and operated by CursorLord Systems.</strong></p>
 
           <div className="back-to-home">
             <Link href="/homepage" className="btn-ghost">

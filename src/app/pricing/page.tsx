@@ -38,7 +38,7 @@ export default function PricingPage() {
             <p className="text-gray-400 mb-6 text-sm md:text-base">Perfect for single stores & supermarkets</p>
             
             <div className="mb-8">
-              <span className="text-4xl md:text-3xl font-bold">₦200,000</span>
+              <span className="text-4xl md:text-3xl font-bold">₦150,000</span>
               <span className="text-gray-400 text-base md:text-lg">/year</span>
               <p className="text-gray-500 text-xs md:text-sm mt-2 leading-relaxed">
                 Covers hosting, secure cloud database & backup, site maintenance and 24/7 support
@@ -70,7 +70,7 @@ export default function PricingPage() {
               </li>
 			  <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">Fraud & Profit leaks prevention</span>
+                <span className="text-sm md:text-base">Fraud & Profit leaks monitoring</span>
               </li>
 			  <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
@@ -94,11 +94,11 @@ export default function PricingPage() {
               </li>
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">Complete data security</span>
+                <span className="text-sm md:text-base">Secure Cloud Data Storage</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-sm md:text-base">24/7 Client Support</span>
+                <span className="text-sm md:text-base">Client Support</span>
               </li>
             </ul>
           </div>
@@ -113,7 +113,7 @@ export default function PricingPage() {
             <p className="text-gray-400 mb-6 text-sm md:text-base">For chain stores & multi-branch operations</p>
             
             <div className="mb-8">
-              <span className="text-4xl md:text-3xl font-bold">₦350,000</span>
+              <span className="text-4xl md:text-3xl font-bold">₦250,000</span>
               <span className="text-gray-400 text-base md:text-lg">/year</span>
               <p className="text-gray-500 text-xs md:text-sm mt-2 leading-relaxed">
                 Covers hosting, secure cloud database & backup, site maintenance and 24/7 support

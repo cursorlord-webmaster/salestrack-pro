@@ -141,6 +141,43 @@ if (!mounted) {
   font-weight: 700;
 }
 
+.value-prop-sub {
+  max-width: calc(100% - 100px);
+  margin: 14px auto 0;
+  background: rgba(30,41,59,0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid #334155;
+  border-left: 4px solid #eddb13;
+  border-right: 4px solid #eddb13;
+  padding: 20px 28px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.br-desktop { display: none; }
+@media (min-width: 768px) {
+  .br-desktop { display: block; }
+}
+.value-prop-sub p {
+  color: #cbd5e1;
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 0;
+}
+.value-prop-sub p b { color: #fff; font-weight: 700; }
+
+@media (max-width: 768px) {
+ .value-prop-sub {
+    max-width: 100%;
+    border-left: 1px solid #334155;
+    border-right: 1px solid #334155;
+    border-top: 3px solid #eddb13;
+    border-bottom: 3px solid #eddb13;
+    text-align: center;
+    padding: 18px 20px;
+  }
+}
+
 @media (max-width: 768px) {
   .value-prop {
     padding: 24px 20px;
@@ -440,24 +477,28 @@ if (!mounted) {
         </div>
       </header>
 	  
-	  {/* VALUE PROP HERO */}
+{/* VALUE PROP HERO - OPTION 2 FINAL - Double Gold Frame */}
 <section className="value-prop">
   <div className="value-prop-inner">
-<h2>
-  Track every sale in your store. Stop profit leaks & staff fraud.{' '}
-  <span className="highlight">Boost your store's productivity & performance</span> while you monitor from any location!
-</h2>
+    <h2>
+      Know what's happening in your store.{' '}
+      <span className="highlight">Track every sale, trace staff activity & control profit leaks - in real time,</span> from any location!
+    </h2>
   </div>
+<div className="value-prop-sub">
+  <p>
+    <b>SalesTrack Pro</b> gives retail business owners the <b>visibility, accountability and business intelligence</b> they
+   
+    need to stay in control and grow their business - even when they're not physically in the store.
+  </p>
+</div>
 </section>
 
-      {/* CLIENT LOGIN CTA */}
-      <div className="login-cta">
-        <Link href="/client-login">
-          <Button className="btn btn-primary btn-lg">
-            Client Login
-          </Button>
-        </Link>
-      </div>
+<div className="login-cta">
+  <Link href="/client-login">
+    <Button className="btn btn-primary btn-lg">Client Login</Button>
+  </Link>
+</div>
 
       {/* HERO SECTION */}
       <section className="hero">
@@ -653,7 +694,7 @@ if (!mounted) {
             Request Demo Access
           </a>
           <p className="text-gray-400 text-sm text-center max-w-md">
-            Chat with us on WhatsApp for instant access to our live demo store. Test all features before you grab your own store.
+            Chat with us on WhatsApp for instant access to our live demo store. Test all features for FREE before you grab your own store.
           </p>
 
           <Link href="/pricing" className="w-full max-w-[280px] mt-2">
@@ -670,7 +711,7 @@ if (!mounted) {
         <div className="footer-inner">
           <p>© 2026 SalesTrack Pro. Built & Powered By CursorLord Systems.</p>
           <div className="footer-links">
-            <Link href="/terms">Terms & Conditions</Link>
+            <Link href="/terms">Software Terms & Conditions</Link>
             <span>•</span>
             <Link href="/privacy">Privacy Policy</Link>
           </div>

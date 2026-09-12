@@ -30,7 +30,6 @@ export async function POST(req: Request) {
     // -----------------------------------
     // CREATE AUTH USER
     // -----------------------------------
-
     const { data: authUser, error: authError } =
       await adminClient.auth.admin.createUser({
         email: ownerEmail,
@@ -51,7 +50,6 @@ export async function POST(req: Request) {
     // -----------------------------------
     // CREATE STORE
     // -----------------------------------
-
     const { data: store, error: storeError } =
       await adminClient
         .from('stores')
@@ -76,32 +74,24 @@ export async function POST(req: Request) {
     // -----------------------------------
     // UPDATE AUTH METADATA
     // -----------------------------------
-
-    await adminClient.auth.admin.updateUserById(
-      authUser.user.id,
-      {
-        app_metadata: {
-          role: 'store_owner',
-          storeId: store.id,
-        },
-      }
-    )
+    await adminClient.auth.admin.updateUserById(authUser.user.id, {
+      app_metadata: {
+        role: 'store_owner',
+        storeId: store.id,
+      },
+    })
 
     // -----------------------------------
     // CREATE PROFILE
     // -----------------------------------
-
-    const { error: profileError } =
-      await adminClient
-        .from('profiles')
-        .insert({
-          id: authUser.user.id,
-          store_id: store.id,
-          full_name: ownerName,
-          email: ownerEmail,
-          role: 'store_owner',
-          active: true,
-        })
+    const { error: profileError } = await adminClient.from('profiles').insert({
+      id: authUser.user.id,
+      store_id: store.id,
+      full_name: ownerName,
+      email: ownerEmail,
+      role: 'store_owner',
+      active: true,
+    })
 
     if (profileError) {
       return NextResponse.json(
@@ -113,19 +103,17 @@ export async function POST(req: Request) {
     // -----------------------------------
     // DEFAULT STORE SETTINGS
     // -----------------------------------
-
-    const { error: settingsError } =
-await adminClient
-  .from('store_settings')
-  .insert({
-    store_id: store.id,
-    store_name: storeName,
-    store_address: '',
-    store_phone: phone || '',
-    store_email: ownerEmail,
-    receipt_footer: 'Thank you for your patronage',
-    low_stock_threshold: 10,
-  })
+    const { error: settingsError } = await adminClient
+      .from('store_settings')
+      .insert({
+        store_id: store.id,
+        store_name: storeName,
+        store_address: '',
+        store_phone: phone || '',
+        store_email: ownerEmail,
+        receipt_footer: 'Thank you for your patronage',
+        low_stock_threshold: 10,
+      })
 
     if (settingsError) {
       return NextResponse.json(
@@ -135,30 +123,48 @@ await adminClient
     }
 
     // -----------------------------------
-    // AUDIT LOG
+    // SECURE ONBOARDING TOKEN - NEW LEGAL SHIELD
     // -----------------------------------
+    const secureToken = crypto.randomUUID()
 
-    await adminClient
-      .from('audit_logs')
+    const { error: tokenError } = await adminClient
+      .from('onboarding_tokens')
       .insert({
         store_id: store.id,
-        user_id: authUser.user.id,
-        user_full_name: ownerName,
-        action: 'STORE_PROVISIONED',
-        entity: 'store',
-        details: `Store created by master admin`,
+        owner_email: ownerEmail,
+        token: secureToken,
+        expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(), // 72h
       })
+
+    if (tokenError) {
+      console.error('Token creation failed:', tokenError)
+      // Don't fail provisioning if token fails, but log it
+    }
+
+    const onboardingLink = `/provisioned?token=${secureToken}`
+    const fullLink = `https://salestrackpro.store${onboardingLink}`
+
+    // -----------------------------------
+    // AUDIT LOG
+    // -----------------------------------
+    await adminClient.from('audit_logs').insert({
+      store_id: store.id,
+      user_id: authUser.user.id,
+      user_full_name: ownerName,
+      action: 'STORE_PROVISIONED',
+      entity: 'store',
+      details: `Store created by master admin. Onboarding token ${secureToken} generated.`,
+    })
 
     return NextResponse.json({
       success: true,
       storeId: store.id,
+      onboardingLink,
+      fullLink, // Use this to copy to WhatsApp
+      ownerEmail,
     })
   } catch (error) {
     console.error(error)
-
-    return NextResponse.json(
-      { error: 'Provisioning failed' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Provisioning failed' }, { status: 500 })
   }
 }

@@ -219,8 +219,17 @@ const handleViewAnalytics = async () => {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 text-center text-xs text-slate-500 leading-relaxed">
-          SalesTrack Pro<br />Built & Powered by CursorLord Systems
+        <div className="p-4 border-t border-slate-800 text-center">
+          <Link
+            href="/terms"
+            target="_blank"
+            className="inline-block mb-6 text-xs text-slate-500 hover:text-cyan-400 underline underline-offset-4 transition-colors leading-relaxed"
+          >
+            Software Terms & Conditions
+          </Link>
+          <div className="text-xs text-slate-500 leading-relaxed">
+            SalesTrack Pro<br />Built & Powered by CursorLord Systems
+          </div>
         </div>
       </aside>
 
