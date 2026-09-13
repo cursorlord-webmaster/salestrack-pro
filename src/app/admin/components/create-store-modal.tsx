@@ -120,14 +120,24 @@ export function CreateStoreModal() {
 
             <div className="bg-amber-950/30 border border-amber-800 p-3 rounded">
               <p className="text-amber-400 font-semibold">🔗 Onboarding Link (Send FIRST via WhatsApp)</p>
-              <div className="flex gap-2 mt-2">
-                <Input value={successData.localLink} readOnly className="bg-slate-800 border-slate-700 text-white text-xs" />
-                <Button onClick={() => copyToClipboard(successData.localLink, 'link')} className="bg-cyan-600">
-                  {copied === 'link'? 'Copied!' : 'Copy'}
+              
+              {/* PRODUCTION - PRIMARY */}
+              <p className="text-xs text-emerald-300 mt-3 font-semibold">✅ Production Link (Send to Customer)</p>
+              <div className="flex gap-2 mt-1">
+                <Input value={successData.fullLink} readOnly className="bg-slate-800 border-slate-700 text-white text-xs" />
+                <Button onClick={() => copyToClipboard(successData.fullLink, 'prod-link')} className="bg-emerald-600 hover:bg-emerald-700">
+                  {copied === 'prod-link' ? 'Copied!' : 'Copy'}
                 </Button>
               </div>
-              <p className="text- text-slate-400 mt-1">For localhost test: {successData.localLink}</p>
-              <p className="text- text-slate-400">For production: {successData.fullLink}</p>
+
+              {/* LOCALHOST - SECONDARY */}
+              <p className="text-xs text-slate-400 mt-3">🧪 Localhost Test (Dev only)</p>
+              <div className="flex gap-2 mt-1">
+                <Input value={successData.localLink} readOnly className="bg-slate-900 border-slate-700 text-slate-400 text-xs" />
+                <Button variant="outline" onClick={() => copyToClipboard(successData.localLink, 'local-link')} className="border-slate-600 text-slate-300">
+                  {copied === 'local-link' ? 'Copied!' : 'Copy'}
+                </Button>
+              </div>
             </div>
 
             <div className="bg-slate-800 p-3 rounded">

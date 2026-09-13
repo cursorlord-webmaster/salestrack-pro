@@ -615,9 +615,9 @@ if (!mounted) {
           <h3>Run Your Entire Store From Your Phone</h3>
 
           <p>
-            SalesTrack Pro is a complete Store ERP + POS system that works seamlessly on Android and iPhone devices.
-            Your staff can log in using their dedicated login details, search store products, add items to cart, make sales, 
-            track inventory, and print clean 58mm receipts using portable Bluetooth thermal printers - all without needing a laptop or desktop computer running all day. You monitor your store's entire operation from your phone, anywhere in the world.
+            SalesTrack Pro is a complete, cloud-based Store Management (ERP), Inventory + POS system that works seamlessly on Android and iPhone devices.
+            Your staff can log in to your store using their dedicated login details, search store products, add items to cart, make sales, 
+            track inventory, and print clean 58mm receipts using portable Bluetooth thermal printers - all without needing a laptop or desktop computer running all day. You monitor your store's entire transactions <strong> AS THEY ARE HAPPENING </strong> - live from your phone, anywhere in the world.
           </p>
         </div>
       </section>
