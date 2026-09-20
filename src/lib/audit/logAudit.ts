@@ -1,6 +1,21 @@
 import { createClient } from '@/lib/supabase/client'
 
-type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'READ' | 'STORE_PROVISIONED' | 'SALE'
+type AuditAction = 
+  | 'CREATE' 
+  | 'UPDATE' 
+  | 'DELETE' 
+  | 'READ' 
+  | 'STORE_PROVISIONED' 
+  | 'SALE' 
+  | 'ADJUST' 
+  | 'ADJUSTMENT' 
+  | 'DAMAGE' 
+  | 'THEFT' 
+  | 'EXPIRED' 
+  | 'CORRECTION' 
+  | 'DATA_CORRECT' 
+  | 'PURCHASE' 
+  | 'INVENTORY'
 
 export async function logAudit(
   action: AuditAction,
