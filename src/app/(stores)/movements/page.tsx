@@ -29,7 +29,7 @@ const DISPLAY_LABEL: Record<MovementRecord['movement_type'], string> = {
   adjustment: 'ADJUST',
   damage: 'DAMAGE',
   theft: 'THEFT',
-  correction: 'DATA CORRECT',
+  correction: 'CORRECTION',
   expired: 'EXPIRED',
 }
 
@@ -70,7 +70,7 @@ function getSourceLabel(type: MovementRecord['movement_type']) {
     case 'expired':
       return 'Expired'
     default:
-      return type.charAt(0).toUpperCase() + type.slice(1)
+      return String(type).charAt(0).toUpperCase() + String(type).slice(1)
   }
 }
 
@@ -137,7 +137,7 @@ export default function InventoryMovementsPage() {
 
       const { data, error } = await query
       if (error) throw error
-      return data as MovementRecord[]
+      return data as unknown as MovementRecord[]
     },
     enabled: !!storeId && role !== 'cashier',
   })
@@ -149,7 +149,7 @@ export default function InventoryMovementsPage() {
       const productName = m.products?.name?.toLowerCase() || ''
       const staffName = m.profiles?.full_name?.toLowerCase() || ''
       const rawType = m.movement_type?.toLowerCase() || ''
-      const displayType = (DISPLAY_LABEL[m.movement_type] || '').toLowerCase()
+      const displayType = (DISPLAY_LABEL[m.movement_type as keyof typeof DISPLAY_LABEL] || '').toLowerCase()
       const sourceLabel = getSourceLabel(m.movement_type).toLowerCase()
       const reason = (m.reason || '').toLowerCase()
       return (
