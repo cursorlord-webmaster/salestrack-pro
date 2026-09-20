@@ -489,7 +489,7 @@ if (!mounted) {
   <p>
     <b>SalesTrack Pro</b> gives retail business owners the <b>visibility, accountability and business intelligence</b> they
    
-    need to stay in control and grow their business - even when they're not physically in the store.
+    need to stay in control and grow their businesses - even when they're not physically in the store.
   </p>
 </div>
 </section>

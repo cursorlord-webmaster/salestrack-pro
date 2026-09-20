@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Plus, Edit, Trash2, Loader2 } from "lucide-react"
+import { Plus, NotebookPen, Trash2, Loader2, PencilLine } from "lucide-react"
 import { logAudit } from '@/lib/audit/logAudit'
+import { getVerticalConfig, RETAIL_VERTICALS } from "@/lib/verticals"
 
 type Product = {
   id: string
@@ -55,72 +56,11 @@ type Category = {
   name: string
 }
 
-const GROCERY_CATEGORIES = [
-  "Perishable Foods",
-  "Fruits & Vegetables",
-  "Packaged Foods",
-  "Grains & Tubers",
-  "Beverages",
-  "Toiletries",
-  "Dairy Products",
-  "Protein & Meat",
-  "Bottled Drinks",
-  "Canned Drinks",
-  "Alcoholic & Wine",
-  "Bakery Products",
-  "Additives & Sweeteners",
-  "Frozen Foods",
-  "Canned & Shelved",
-  "Seasoning & Spices",
-  "Cooking Oil & Fats",
-  "Snacks & Confectionery",
-  "Baby & Child Care",
-  "Body Care Products",
-  "Fashion & Beauty",
-  "Household Items",
-  "Clothing & Body Worn",
-  "Pest Control / Insecticides",
-  "Tobacco",
-  "Stationery",
-  "Electronics",
-  "Kitchen Utensils",
-  "Toys & Games",
-  "Others"
-]
-
-const UNIT_OPTIONS = [
-  "pc", "cup", "jar", "can", "kg", "g", "litre", "ml", "pack", "packet", "carton",
-  "crate", "bag", "tuber", "roll", "bundle", "bottle", "sachet", "tin", "wrap"
-]
-
-// FIX: Plural helper - add after UNIT_OPTIONS
-const PLURAL_MAP: Record<string, string> = {
-  pc: "Pcs",
-  cup: "Cups",
-  jar: "Jars",
-  can: "Cans",
-  kg: "Kg",
-  g: "g",
-  litre: "Litres",
-  ml: "ml",
-  pack: "Packs",
-  packet: "Packets",
-  carton: "Cartons",
-  crate: "Crates",
-  bag: "Bags",
-  tuber: "Tubers",
-  roll: "Rolls",
-  bundle: "Bundles",
-  bottle: "Bottles",
-  sachet: "Sachets",
-  tin: "Tins",
-  wrap: "Wraps",
-}
-
-function formatStock(quantity: number, unit: string) {
+function formatStock(quantity: number, unit: string, verticalKey?: string | null) {
   if (!unit) return `${quantity}`
   const lower = unit.toLowerCase()
-  const plural = PLURAL_MAP[lower]
+  const config = getVerticalConfig(verticalKey)
+  const plural = config.pluralMap[lower]
   if (quantity === 1) {
     return `${quantity} ${unit}`
   }
@@ -139,9 +79,19 @@ export default function InventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [profile, setProfile] = useState<any>(null) // ADD THIS LINE
+const [profile, setProfile] = useState<any>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [storeVertical, setStoreVertical] = useState<string | null>(null)
+  const [savingVertical, setSavingVertical] = useState(false)
+  const [pendingVertical, setPendingVertical] = useState<string | null>(null);
+  // --- Damage/Theft surgical ---
+  const [showAdjustModal, setShowAdjustModal] = useState(false)
+  const [adjustType, setAdjustType] = useState<"damage" | "theft" | "correction" | "adjustment">("damage")
+  const [adjustQty, setAdjustQty] = useState(1)
+  const [adjustReason, setAdjustReason] = useState("")
+  const [adjustResponsible, setAdjustResponsible] = useState("")
+  const [adjusting, setAdjusting] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -174,6 +124,17 @@ export default function InventoryPage() {
 
     setUserRole(profile.role)
     setStoreId(profile.store_id)
+
+    // Fetch store vertical selection
+    const { data: storeData } = await supabase
+      .from('stores')
+      .select('vertical')
+      .eq('id', profile.store_id)
+      .single()
+
+    if (storeData?.vertical) {
+      setStoreVertical(storeData.vertical)
+    }
 
     const { data: settingsData } = await supabase
    .from('store_settings')
@@ -281,6 +242,38 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
   return newCat.id
 }
 
+// Step A: Triggered when user clicks 'Select' on a card
+  function handleInitiateVerticalSelect(verticalKey: string) {
+    setPendingVertical(verticalKey);
+  }
+
+  // Step B: Triggered when user clicks 'Yes, Confirm' on the guardrail pop-up
+  async function handleConfirmVerticalSave() {
+    if (!pendingVertical || !storeId) return;
+
+    try {
+      setSavingVertical(true);
+
+      const { error } = await supabase
+        .from("stores")
+        .update({ vertical: pendingVertical })
+        .eq("id", storeId);
+
+      if (error) throw error;
+
+      setStoreVertical(pendingVertical);
+      setPendingVertical(null);
+      toast.success("Store category initialized successfully");
+    } catch (err: any) {
+      console.error("Error saving store vertical:", err);
+      toast.error("Failed to save store retail category", {
+        description: err.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setSavingVertical(false);
+    }
+  }
+
   async function handleAddProduct(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
@@ -315,23 +308,33 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
     }
 
     const { data: newProduct, error } = await supabase
-   .from('products')
-   .insert(product)
-   .select()
-   .single()
+      .from('products')
+      .insert(product)
+      .select()
+      .single()
 
-if (error ||!newProduct) {
-  toast.error("Failed to add product", { description: error?.message })
-  return
-}
-logAudit("CREATE", `Added product: ${product.name}, Stock: ${product.quantity} ${product.base_unit} | ID: ${newProduct.id}`, "inventory").catch(e =>
-  console.error('Audit failed:', e)
-)
-toast.success("Product added successfully")
-setShowAddModal(false)
+    if (error || !newProduct) {
+      toast.error("Failed to add product", { description: error?.message })
+      return
+    }
 
-// Force refetch with delay to ensure FK relation is ready
-setTimeout(() => loadInventory(), 100)
+    // === NEW: Log IN movement for initial purchase ===
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('inventory_movements').insert({
+      store_id: storeId,
+      product_id: newProduct.id,
+      movement_type: 'purchase',
+      quantity: totalBaseUnits,
+      reason: 'PURCHASE',
+      created_by: user?.id || null
+    })
+
+    logAudit("CREATE", `Added product: ${product.name}, Stock: ${product.quantity} ${product.base_unit} | ID: ${newProduct.id}`, "inventory").catch(e =>
+      console.error('Audit failed:', e)
+    )
+    toast.success("Product added successfully - IN movement logged")
+    setShowAddModal(false)
+    setTimeout(() => loadInventory(), 100)
   }
 
   async function handleUpdateProduct(e: React.FormEvent<HTMLFormElement>) {
@@ -351,6 +354,9 @@ setTimeout(() => loadInventory(), 100)
     const categoryName = formData.get('category') as string
     const categoryId = await getOrCreateCategory(categoryName)
 
+    const oldQty = selectedProduct.quantity
+    const diff = totalBaseUnits - oldQty // positive = restock, negative = manual reduction
+
     const updated = {
       name: formData.get('name') as string,
       category_id: categoryId,
@@ -369,13 +375,28 @@ setTimeout(() => loadInventory(), 100)
     }
 
     const { error } = await supabase
-   .from('products')
-   .update(updated)
-   .eq('id', selectedProduct.id)
+      .from('products')
+      .update(updated)
+      .eq('id', selectedProduct.id)
 
     if (error) {
       toast.error("Failed to update product", { description: error.message })
       return
+    }
+
+    // === NEW: Log movement if quantity changed ===
+    if (diff !== 0) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const movementType = diff > 0 ? 'purchase' : 'adjustment'
+      const reason = diff > 0 ? 'RESTOCK' : 'ADJUSTMENT'
+      await supabase.from('inventory_movements').insert({
+        store_id: storeId,
+        product_id: selectedProduct.id,
+        movement_type: movementType,
+        quantity: Math.abs(diff),
+        reason: reason,
+        created_by: user?.id || null
+      })
     }
 
     logAudit("UPDATE", `Updated product: ${selectedProduct.name} | ID: ${selectedProduct.id}`, "inventory").catch(e =>
@@ -432,6 +453,38 @@ async function handleDeleteProduct() {
   setSelectedProduct(null)
   loadInventory()
 }
+
+  async function handleAdjustStock(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedProduct || adjustQty <= 0) return
+    if (adjustQty > selectedProduct.quantity) {
+      toast.error(`Cannot remove ${adjustQty}, only ${selectedProduct.quantity} in stock`)
+      return
+    }
+    setAdjusting(true)
+    const fullReason = `${adjustType.toUpperCase()}: ${adjustReason} | Responsible: ${adjustResponsible || 'N/A'} | Before:${selectedProduct.quantity} After:${Math.max(0, selectedProduct.quantity - adjustQty)}`
+    
+    const { error } = await supabase.rpc('adjust_product_stock', {
+      p_product_id: selectedProduct.id,
+      p_qty: adjustQty,
+      p_type: adjustType,
+      p_reason: fullReason
+    })
+
+    if (error) {
+      toast.error("Adjust failed", { description: error.message })
+      setAdjusting(false)
+      return
+    }
+
+    logAudit("ADJUST", `${adjustType} ${adjustQty}x ${selectedProduct.name} | ${fullReason}`, "inventory").catch(()=>{})
+    toast.success(`${adjustType} logged: -${adjustQty} ${selectedProduct.name}`)
+    setShowAdjustModal(false)
+    setAdjusting(false)
+    setAdjustReason("")
+    setAdjustResponsible("")
+    loadInventory()
+  }
 
   function formatNaira(amount: number) {
     return new Intl.NumberFormat('en-NG', {
@@ -502,7 +555,7 @@ if (loading) {
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-200">
-                  <TableHead className="text-slate-700 text-center">Product Name</TableHead>
+                  <TableHead className="text-slate-700 text-center max-w-">Product Name</TableHead>
                   <TableHead className="text-slate-700 text-center">Category</TableHead>
                   <TableHead className="text-slate-700 text-center">Stock</TableHead>
                   <TableHead className="text-slate-700 text-center">Unit Cost</TableHead>
@@ -510,7 +563,7 @@ if (loading) {
                   <TableHead className="text-slate-700 text-center">Profit %</TableHead>
                   <TableHead className="text-slate-700 text-center">Supplier</TableHead>
                   <TableHead className="text-slate-700 text-center">Status</TableHead>
-                  <TableHead className="text-slate-700 text-center">Actions</TableHead>
+                  <TableHead className="text-slate-700 text-center sticky right-0 bg-white z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -519,11 +572,11 @@ if (loading) {
                     key={item.id}
                     className={`border-slate-100 ${item.isLowStock? 'bg-red-50' : ''}`}
                   >
-                    <TableCell className="font-medium text-slate-900 text-center">{item.name}</TableCell>
-                    <TableCell className="text-slate-600 text-center">{item.category || '-'}</TableCell>
-                    <TableCell className="text-slate-900 text-center font-semibold">
-                      {formatStock(item.quantity, item.base_unit)}
-                    </TableCell>
+                    <TableCell className="font-medium text-slate-900 text-center max-w- truncate" title={item.name}>{item.name}</TableCell>
+                    <TableCell className="text-slate-600 text-center max-w- truncate" title={item.category || ''}>{item.category || '-'}</TableCell>
+<TableCell className="text-slate-900 text-center font-semibold">
+  {formatStock(item.quantity, item.base_unit, storeVertical)}
+</TableCell>
                     <TableCell className="text-slate-600 text-center">
                       {formatNaira(item.unit_cost)}/{item.base_unit}
                     </TableCell>
@@ -545,9 +598,10 @@ if (loading) {
                         <Badge className="bg-green-100 text-green-800 rounded font-medium">In Stock</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex gap-2 justify-center">
+                    <TableCell className="text-center sticky right-0 bg-white z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
+                      <div className="flex gap-1 justify-center">
                         {canPerformAction('update') && (
+                          <>
                           <Button
                             size="sm"
                             variant="outline"
@@ -556,9 +610,25 @@ if (loading) {
                               setShowEditModal(true)
                             }}
                             className="rounded"
+                            title="Edit"
                           >
-                            <Edit className="h-4 w-4" />
+                            <NotebookPen className="h-4 w-4" />
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedProduct(item)
+                              setAdjustType("damage")
+                              setAdjustQty(1)
+                              setShowAdjustModal(true)
+                            }}
+                            className="rounded border-amber-300 text-amber-700 hover:bg-amber-50"
+                            title="Damage / Theft / Correction"
+                          >
+                            <PencilLine className="h-4 w-4" />
+                          </Button>
+                          </>
                         )}
                         {canPerformAction('delete') && (
                           <Button
@@ -603,7 +673,7 @@ if (loading) {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <span className="text-slate-600">Stock</span>
-                      <span className="text-slate-900 font-semibold">{formatStock(item.quantity, item.base_unit)}</span>
+                      <span className="text-slate-900 font-semibold">{formatStock(item.quantity, item.base_unit, storeVertical)}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <span className="text-slate-600">Unit Cost</span>
@@ -628,30 +698,48 @@ if (loading) {
                   </div>
 
                   <div className="flex gap-2 justify-center pt-3 border-t border-slate-200">
-                    {canPerformAction('update') && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedProduct(item)
-                          setShowEditModal(true)
-                        }}
-                        className="rounded flex-1"
-                      >
-                        <Edit className="h-4 w-4 mr-1" /> Edit
-                      </Button>
-                    )}
+                        {canPerformAction('update') && (
+                          <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedProduct(item)
+                              setShowEditModal(true)
+                            }}
+                            className="rounded h-7 w-7 p-0"
+                            title="Edit"
+                          >
+                            <NotebookPen className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedProduct(item)
+                              setAdjustType("damage")
+                              setAdjustQty(1)
+                              setShowAdjustModal(true)
+                            }}
+                            className="rounded h-7 w-7 p-0 border-amber-300 text-amber-700 hover:bg-amber-50"
+                            title="Damage / Theft"
+                          >
+                            <PencilLine className="h-3.5 w-3.5" />
+                          </Button>
+                          </>
+                        )}
                     {canPerformAction('delete') && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedProduct(item)
-                          setShowDeleteModal(true)
-                        }}
-                        className="rounded flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1 text-white" /> Delete
-                      </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProduct(item)
+                              setShowDeleteModal(true)
+                            }}
+                            className="rounded h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white border-0"
+                            title="Archive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-white" />
+                          </Button>
                     )}
                   </div>
                 </CardContent>
@@ -663,12 +751,82 @@ if (loading) {
         </CardContent>
       </Card>
 
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-3xl bg-white max-h-[85vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
-          <DialogHeader>
-            <DialogTitle className="text-slate-900 text-center">Add New Product</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddProduct}>
+<Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+<DialogContent className="max-w-3xl bg-white max-h-[85vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
+          {!storeVertical ? (
+            <div className="p-4 space-y-4">
+              <DialogHeader>
+                <DialogTitle className="text-red-600 text-center text-xl font-bold">Important Notice</DialogTitle>
+              </DialogHeader>
+              <div className="bg-red-50 border border-red-200 p-4 rounded text-sm text-slate-700 leading-relaxed">
+                Please choose your business type carefully below. The category you select will be saved to your store profile and <strong>cannot be changed later.</strong> Ensure that it is the correct category for your business type before clicking the <strong>'Select'</strong> button. If you are not sure which one to choose, please contact SalesTrack Pro Support via our official WhatsApp on +234-903-598-4646 for instant guidance before you select or proceed.
+              </div>
+
+              <div className="relative">
+                {/* 2-Column Vertical Selection Grid */}
+                <div className="grid grid-cols-2 gap-3 pt-2 max-h-[50vh] overflow-y-auto pr-1">
+                  {Object.values(RETAIL_VERTICALS).map((vertical) => (
+                    <div
+                      key={vertical.id}
+                      className="aspect-square p-3 bg-[#0f172a] text-white rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between items-center text-center transition-transform duration-150 hover:border-slate-600"
+                    >
+                      <div className="my-auto space-y-1">
+                        <h4 className="font-semibold text-xs text-white text-center leading-tight">{vertical.label}</h4>
+                        <p className="text-[9.5px] leading-tight text-slate-300 text-center line-clamp-4 font-normal tracking-tight px-0.5">{vertical.description}</p>
+                      </div>
+                      
+                      <Button
+                        type="button"
+                        disabled={savingVertical || pendingVertical !== null}
+                        onClick={() => handleInitiateVerticalSelect(vertical.id)}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium text-[11px] py-1 h-7 rounded border border-slate-600/40 transition-colors shadow-xs"
+                      >
+                        Select
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Confirmation Guardrail Pop-up Overlay */}
+                {pendingVertical && (
+                  <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 rounded-lg z-50">
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xl max-w-sm w-full text-center space-y-4">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-slate-900 text-base">Confirm Business Type</h3>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Are you sure you want to select <span className="font-semibold text-slate-900">"{RETAIL_VERTICALS[pendingVertical]?.label}"</span>? This action is permanent and configures your store's inventory categories.
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          type="button"
+                          disabled={savingVertical}
+                          onClick={() => setPendingVertical(null)}
+                          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs h-9 rounded-lg border border-slate-300 transition-colors"
+                        >
+                          No, Go Back
+                        </Button>
+                        <Button
+                          type="button"
+                          disabled={savingVertical}
+                          onClick={handleConfirmVerticalSave}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 rounded-lg transition-colors shadow-xs"
+                        >
+                          {savingVertical ? "Saving..." : "Yes, Confirm"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <DialogHeader>
+                <DialogTitle className="text-slate-900 text-center">Add New Product</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddProduct}>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -681,8 +839,8 @@ if (loading) {
                     <SelectTrigger className="bg-white border-slate-300">
                       <SelectValue placeholder="select item category" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {GROCERY_CATEGORIES.map(cat => (
+                       <SelectContent>
+                      {getVerticalConfig(storeVertical).categories.map(cat => (
                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                       ))}
                     </SelectContent>
@@ -732,9 +890,11 @@ if (loading) {
                     <SelectTrigger className="bg-white border-slate-300">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {UNIT_OPTIONS.map(unit => (
-                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      <SelectContent>
+                      {getVerticalConfig(storeVertical).unitOptions.map(unit => (
+                        <SelectItem key={unit} value={unit}>
+                          {getVerticalConfig(storeVertical).pluralMap[unit] || unit}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -778,7 +938,9 @@ if (loading) {
                 Save Product
               </Button>
             </DialogFooter>
-          </form>
+            </form>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -800,8 +962,8 @@ if (loading) {
                     <SelectTrigger className="bg-white border-slate-300">
                       <SelectValue placeholder="select item category" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {GROCERY_CATEGORIES.map(cat => (
+                        <SelectContent>
+                      {getVerticalConfig(storeVertical).categories.map(cat => (
                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                       ))}
                     </SelectContent>
@@ -852,15 +1014,17 @@ if (loading) {
 
                <h3 className="text-sm font-semibold text-slate-900 pt-2 text-center">How You Sell To Customers</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
+                  <div className="space-y-2">
                   <Label htmlFor="edit-base_unit" className="text-slate-700 text-center block">Sell By *</Label>
                   <Select name="base_unit" defaultValue={selectedProduct?.base_unit || 'piece'} required>
                     <SelectTrigger className="bg-white border-slate-300">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {UNIT_OPTIONS.map(unit => (
-                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      {getVerticalConfig(storeVertical).unitOptions.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {getVerticalConfig(storeVertical).pluralMap[unit] || unit}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -928,6 +1092,54 @@ if (loading) {
               Delete
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+	  
+	        {/* --- SURGICAL: Damage/Theft/Correction Modal --- */}
+      <Dialog open={showAdjustModal} onOpenChange={setShowAdjustModal}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Adjust Stock — {selectedProduct?.name}</DialogTitle>
+            <p className="text-center text-sm text-slate-500">Current: {selectedProduct ? formatStock(selectedProduct.quantity, selectedProduct.base_unit, storeVertical) : '-'}</p>
+          </DialogHeader>
+          <form onSubmit={handleAdjustStock} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-center block">Type *</Label>
+                <Select value={adjustType} onValueChange={(v:any)=>setAdjustType(v)}>
+                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="damage">Damage</SelectItem>
+                    <SelectItem value="theft">Theft</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="correction">Correction</SelectItem>
+                    <SelectItem value="adjustment">Adjustment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-center block">Qty to Remove *</Label>
+                <Input type="number" min={1} max={selectedProduct?.quantity || 1} value={adjustQty} onChange={e=>setAdjustQty(parseInt(e.target.value)||1)} required className="text-center bg-white border-slate-300" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-center block">Reason / Note *</Label>
+              <Input value={adjustReason} onChange={e=>setAdjustReason(e.target.value)} placeholder="e.g. 5 bottles broken during offload" required className="bg-white border-slate-300 text-center" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-center block">Responsible Person</Label>
+              <Input value={adjustResponsible} onChange={e=>setAdjustResponsible(e.target.value)} placeholder="e.g. John (loader) / CCTV" className="bg-white border-slate-300 text-center" />
+            </div>
+            <div className="bg-amber-50 p-2 rounded border border-amber-200 text-xs text-center text-amber-800">
+              Will deduct from stock and log in Inventory Movements as {adjustType} for analytics & staff audit.
+            </div>
+            <DialogFooter className="sm:justify-center gap-2">
+              <Button type="button" variant="outline" onClick={()=>setShowAdjustModal(false)} className="rounded">Cancel</Button>
+              <Button type="submit" disabled={adjusting} className="rounded bg-amber-600 hover:bg-amber-700 text-white">
+                {adjusting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Logging...</> : `Confirm -${adjustQty}`}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

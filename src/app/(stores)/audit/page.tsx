@@ -102,7 +102,7 @@ return (
                 Timestamp
               </TableHead>
               <TableHead className="text-black font-semibold w-[140px] text-center">
-                User
+                Staff
               </TableHead>
               <TableHead className="text-black font-semibold w-[120px] text-center">
                 Action

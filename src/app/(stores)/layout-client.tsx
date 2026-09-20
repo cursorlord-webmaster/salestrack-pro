@@ -8,17 +8,18 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
   LayoutDashboard,
-  Package,
+  Warehouse,
   ShoppingCart,
-  Receipt,
-  FileText,
-  BarChart3,
+  Clock9,
+  NotebookPen,
+  PencilLine,
   TrendingUp,
   Users,
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Repeat
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
@@ -31,12 +32,13 @@ import { format } from 'date-fns' // add this at top with other date-fns imports
 // SalesTrack modules - no expiry/batch per blueprint
 const MODULES = [
   { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { name: 'inventory', label: 'Inventory', icon: Package, href: '/inventory' },
+  { name: 'inventory', label: 'Inventory', icon: Warehouse, href: '/inventory' },
+  { name: 'movements', label: 'Inventory Movement', icon: Repeat, href: '/movements' },
   { name: 'pos', label: 'POS / Sales', icon: ShoppingCart, href: '/pos' },
-  { name: 'sales', label: 'Sales History', icon: Receipt, href: '/sales' },
-  { name: 'reports', label: 'Reports', icon: BarChart3, href: '/reports' },
+  { name: 'sales', label: 'Sales History', icon: Clock9, href: '/sales' },
+  { name: 'reports', label: 'Reports', icon: PencilLine, href: '/reports' },
   { name: 'analytics', label: 'Business Analytics', icon: TrendingUp, href: '/analytics' },
-  { name: 'audit', label: 'Audit Trail', icon: FileText, href: '/audit' },
+  { name: 'audit', label: 'Audit Trail', icon: NotebookPen, href: '/audit' },
   { name: 'staff', label: 'Staff Management', icon: Users, href: '/staff' },
   { name: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ]
@@ -44,11 +46,11 @@ const MODULES = [
 // SalesTrack RBAC per your blueprint
 const PERMISSIONS = {
   store_owner: {
-    pages: ['dashboard', 'pos', 'inventory', 'sales', 'reports', 'analytics', 'audit', 'staff', 'settings'],
+    pages: ['dashboard', 'pos', 'inventory', 'movements', 'sales', 'reports', 'analytics', 'audit', 'staff', 'settings'],
     actions: ['create', 'read', 'update', 'delete', 'export']
   },
   manager: {
-    pages: ['dashboard', 'pos', 'inventory', 'sales', 'reports', 'audit', 'staff'],
+    pages: ['dashboard', 'pos', 'inventory', 'movements', 'sales', 'reports', 'audit', 'staff'],
     actions: ['read', 'export', 'create', 'update', 'delete'] // no password reset
   },
   cashier: {
