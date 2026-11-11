@@ -69,35 +69,61 @@ export function ReceiptDialog({
   }, [open])
 
   async function fetchStoreInfo() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    // OFFLINE FIRST — use cached store info, never call Supabase when offline
+    if (!navigator.onLine) {
+      const cachedName = localStorage.getItem('salestrack_store_name')
+      const cachedAddress = localStorage.getItem('salestrack_store_address')
+      const cachedPhone = localStorage.getItem('salestrack_store_phone')
+      if (cachedName) {
+        setStoreInfo({
+          name: cachedName,
+          address: cachedAddress || null,
+          phone: cachedPhone || null
+        })
+      }
+      return
+    }
 
-    const { data: profile } = await supabase
-     .from('profiles')
-     .select('store_id')
-     .eq('id', user.id)
-     .single()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    if (!profile?.store_id) return
-
-    const [{ data: store }, { data: settings }] = await Promise.all([
-      supabase
-       .from('stores')
-       .select('name')
-       .eq('id', profile.store_id)
-       .single(),
-      supabase
-       .from('store_settings')
-       .select('store_address, store_phone')
-       .eq('store_id', profile.store_id)
+      const { data: profile } = await supabase
+       .from('profiles')
+       .select('store_id')
+       .eq('id', user.id)
        .single()
-    ])
 
-    setStoreInfo({
-      name: store?.name || 'SalesTrack Pro',
-      address: settings?.store_address || null,
-      phone: settings?.store_phone || null
-    })
+      if (!profile?.store_id) return
+
+      const [{ data: store }, { data: settings }] = await Promise.all([
+        supabase
+         .from('stores')
+         .select('name')
+         .eq('id', profile.store_id)
+         .single(),
+        supabase
+         .from('store_settings')
+         .select('store_address, store_phone')
+         .eq('store_id', profile.store_id)
+         .single()
+      ])
+
+      const nextInfo = {
+        name: store?.name || 'SalesTrack Pro',
+        address: settings?.store_address || null,
+        phone: settings?.store_phone || null
+      }
+      setStoreInfo(nextInfo)
+      // Cache for offline receipts
+      try {
+        localStorage.setItem('salestrack_store_name', nextInfo.name)
+        localStorage.setItem('salestrack_store_address', nextInfo.address || '')
+        localStorage.setItem('salestrack_store_phone', nextInfo.phone || '')
+      } catch {}
+    } catch {
+      // WiFi dropped mid-fetch — keep current storeInfo, receipt still prints
+    }
   }
 
   const handlePrint = () => {

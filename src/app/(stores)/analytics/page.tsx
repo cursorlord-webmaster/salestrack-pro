@@ -11,7 +11,7 @@ import {
   ArrowUpDown, AlertTriangle, OctagonAlert, HandCoins, Calculator, TrendingDown, ChevronDown, ChartNoAxesCombined,
   Gauge, NotebookPen, Calendar, Stethoscope, Check, Info
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears } from 'date-fns'
 import { X } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
@@ -185,6 +185,28 @@ export default function AnalyticsPage() {
     queryFn: async (): Promise<Snapshot | null> => {
       if (!profile?.store_id) return null
 
+      // Calculate expected period — must match compute/route.ts exactly
+      const now = new Date()
+      let expStart: Date, expEnd: Date
+      if (selectedPeriod === 'week') {
+        expStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 })
+        expEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 })
+      } else if (selectedPeriod === 'month') {
+        expStart = startOfMonth(subMonths(now, 1))
+        expEnd = endOfMonth(subMonths(now, 1))
+      } else if (selectedPeriod === '3m') {
+        expEnd = endOfMonth(subMonths(now, 1))
+        expStart = startOfMonth(subMonths(now, 3))
+      } else if (selectedPeriod === '6m') {
+        expEnd = endOfMonth(subMonths(now, 1))
+        expStart = startOfMonth(subMonths(now, 6))
+      } else {
+        expStart = startOfYear(subYears(now, 1))
+        expEnd = endOfYear(subYears(now, 1))
+      }
+      const expStartStr = format(expStart, 'yyyy-MM-dd')
+      const expEndStr = format(expEnd, 'yyyy-MM-dd')
+
       // 1. Try to fetch existing snapshot for period
       const { data: existing } = await supabase
       .from('business_analytics_snapshots')
@@ -195,15 +217,15 @@ export default function AnalyticsPage() {
       .limit(1)
       .maybeSingle()
 
-      // 2. If no snapshot, compute it
-      if (!existing) {
+      // 2. If no snapshot OR snapshot is stale (e.g. July when we need October), compute fresh one
+      if (!existing || existing.period_start !== expStartStr || existing.period_end !== expEndStr) {
         const res = await fetch('/api/analytics/compute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ store_id: profile.store_id, period_type: selectedPeriod })
         })
 
-        if (!res.ok) return null
+        if (!res.ok) return existing ?? null
         const { snapshot: newSnapshot } = await res.json()
         return newSnapshot
       }

@@ -42,10 +42,8 @@ export async function GET() {
         for (const o of owners) {
           await supabase.from('user_alerts').upsert({
             user_id: o.id,
-            store_id: store.id,
             alert_type: 'weekly_briefing',
             period_end: periodEndStr,
-            period_start: periodStartStr,
           }, { onConflict: 'user_id,alert_type,period_end' })
         }
       }

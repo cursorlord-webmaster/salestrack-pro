@@ -30,9 +30,9 @@ export function ConnectionBanner() {
     <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 text-white">
       <div className="flex items-center justify-center gap-2 py-3 px-4">
         <WifiOff className="h-4 w-4 animate-pulse" />
-        <span className="font-medium text-sm">
-          Connection to your private cloud database & server is lost. You do not have an active internet connection. Fix it to restore access to your database and proceed.
-        </span>
+<span className="font-medium text-sm">
+  You are offline! <strong>EMERGENCY OFFLINE MODE IS ON.</strong> You can still search for your products and sell to customers. The Offline Mode is strictly an Emergency Sales Support feature to enable you continue with your sales during internet outages <strong>IF IT HAPPENS WHEN YOU ARE ON THE POS SALES PAGE.</strong> Please do not click to another page, refresh, log out, or close the app until you are done with sales. Reconnect to internet to restore FULL store functions!
+</span>
       </div>
     </div>
   )

@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { startOfWeek, subWeeks } from 'date-fns'
+import { startOfWeek, endOfWeek, subWeeks } from 'date-fns'
 import WeeklyBriefingModal from '@/components/WeeklyBriefingModal'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -89,12 +89,31 @@ export default function StoreLayoutClient({ children, profile, store }: StoreLay
   const pathname = usePathname()
   const supabase = createClient()
   
+  // OFFLINE SUPPORT: Save IDs to device when online, so offline checkout can read them without Supabase
+useEffect(() => {
+  if (!profile?.store_id) return
+  try {
+    localStorage.setItem('salestrack_store_id', profile.store_id)
+    localStorage.setItem('salestrack_staff_id', profile.id)
+    localStorage.setItem('salestrack_staff_name', profile.full_name || '')
+  } catch {}
+}, [profile?.store_id, profile?.id, profile?.full_name])
+
+  // SERVICE WORKER — cache POS shell so refresh while offline still loads
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!('serviceWorker' in navigator)) return
+    // Only in production — in dev, SW can cache stale code and confuse localhost testing
+    if (process.env.NODE_ENV !== 'production') return
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  }, [])
+  
 useEffect(() => {
   if (!profile || profile.role !== 'store_owner') return
 
   const checkWeeklyBriefing = async () => {
-    const lastSunday = startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 0 })
-    const periodEnd = format(lastSunday, 'yyyy-MM-dd')
+  const lastSunday = endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 })
+  const periodEnd = format(lastSunday, 'yyyy-MM-dd')
 
     const { data: alert } = await supabase
      .from('user_alerts')

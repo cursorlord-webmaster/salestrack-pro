@@ -6,6 +6,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SalesTrack Pro",
   description: "Multi-tenant inventory and POS management platform",
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({

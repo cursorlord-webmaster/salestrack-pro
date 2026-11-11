@@ -16,6 +16,9 @@ type CheckoutPayload = {
   discount: number
   subtotal: number
   total: number
+  idempotency_key: string
+  created_at?: string // original offline sale time, for sync only
+  is_sync?: boolean // true when syncing queued offline sale — silent toast
 }
 
 export function useCheckout() {
@@ -45,7 +48,18 @@ export function useCheckout() {
         return sum + itemProfit
       }, 0) - payload.discount
 
-      // 3. Insert sale
+      // 3. Idempotency check - if this key already exists, return existing sale, don't duplicate
+      const { data: existingSale } = await supabase
+        .from('sales')
+        .select('id, receipt_no')
+        .eq('idempotency_key', payload.idempotency_key)
+        .maybeSingle()
+
+      if (existingSale) {
+        return { sale_id: existingSale.id, receipt_no: existingSale.receipt_no, already_completed: true as const, is_sync: !!payload.is_sync }
+      }
+
+      // 3b. Insert sale - receipt_no derived from key so retry = same receipt_no
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
@@ -57,12 +71,25 @@ export function useCheckout() {
           discount: payload.discount,
           total: payload.total,
           profit: profit,
-          receipt_no: crypto.randomUUID().slice(-8).toUpperCase()
+          receipt_no: payload.idempotency_key.replace(/-/g, '').slice(0, 8).toUpperCase(),
+          idempotency_key: payload.idempotency_key,
+          created_at: payload.created_at ?? new Date().toISOString()
         })
         .select('id, receipt_no')
         .single()
 
-      if (saleError) throw saleError
+      if (saleError) {
+        // Race: two clicks at same millisecond, second hits UNIQUE - fetch existing
+        if ((saleError as any).code === '23505') {
+          const { data: dup } = await supabase
+            .from('sales')
+            .select('id, receipt_no')
+            .eq('idempotency_key', payload.idempotency_key)
+            .maybeSingle()
+          if (dup) return { sale_id: dup.id, receipt_no: dup.receipt_no, already_completed: true as const, is_sync: !!payload.is_sync }
+        }
+        throw saleError
+      }
 
       // 4. Insert sale_items
       const saleItems = payload.items.map(item => ({
@@ -113,10 +140,16 @@ await logAudit(
   'sale'
 )
 
-      return { sale_id: sale.id, receipt_no: sale.receipt_no }
+      return { sale_id: sale.id, receipt_no: sale.receipt_no, is_sync: !!payload.is_sync }
     },
-    onSuccess: () => {
-      toast.success('Sale completed!')
+    onSuccess: (result: any) => {
+      if (result?.is_sync) {
+        // Silent for sync — pos/page.tsx will show one summary toast "X offline sales synced"
+      } else if (result?.already_completed) {
+        toast.success(`You have already completed this sale - Receipt #${result.receipt_no}`)
+      } else {
+        toast.success('Sale completed!')
+      }
       clearCart()
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['sales'] })

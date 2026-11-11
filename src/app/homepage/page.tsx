@@ -260,8 +260,65 @@ if (!mounted) {
         .hero-sub {
           color: var(--gray-300);
           font-size: 18px;
-          margin-bottom: 40px;
+          margin-bottom: 12px;
         }
+
+        .hero-bonus-box {
+          max-width: 1200px;
+          margin: 0 auto 40px;
+          background: rgba(30,41,59,0.7);
+          backdrop-filter: blur(10px);
+          border: 1px solid #334155;
+          border-left: 4px solid #eddb13;
+          border-right: 4px solid #eddb13;
+          padding: 20px 28px;
+          border-radius: 8px;
+          text-align: left;
+        }
+
+        .hero-bonus-title {
+          text-align: center;
+          font-size: 20px;
+          margin-bottom: 14px;
+        }
+
+        .hero-bonus-title .bonus-label {
+          color: #eddb13;
+          font-weight: 800;
+          font-size: 20px;
+          letter-spacing: 0.3px;
+        }
+
+        .hero-bonus {
+          color: var(--gray-300);
+          font-size: 16px;
+          line-height: 1.65;
+          margin-bottom: 10px;
+        }
+
+        .hero-bonus:last-child {
+          margin-bottom: 0;
+        }
+
+        .hero-bonus .bonus-label {
+          color: #eddb13;
+          font-weight: 700;
+        }
+
+        .hero-bonus b {
+          color: white;
+          font-weight: 700;
+        }
+		
+		.main-features-title {
+          color: white;
+          font-size: 22px;
+          font-weight: 800;
+          text-align: center;
+          margin-bottom: 20px;
+          letter-spacing: -0.3px;
+        }
+
 
         .feature-grid {
           display: grid;
@@ -505,6 +562,17 @@ if (!mounted) {
         <div className="hero-inner">
           <h2>Core Features Of SalesTrack Pro</h2>
           <p className="hero-sub">Store POS + Inventory + Accounting + Auditing + Analytics. Your Intelligent All-In-One Suite Built For Profit & Full Control</p>
+          <div className="hero-bonus-box">
+            <p className="hero-bonus-title"><span className="bonus-label">Bonus Features</span></p>
+            <p className="hero-bonus">
+              <b>Emergency Offline Sales:</b> {' '} If your internet is lost during sales, your POS keeps selling and <b>sync automatically with the cloud</b> when internet returns.
+            </p>
+            <p className="hero-bonus">
+              <b>Business Analytics:</b> {' '} A highly professional, periodic, business-intelligence analysis of your store's weekly, monthly, 3-month, 6-month &amp; yearly sales - showing your profit, profit opportunities you missed, top selling products by categories, profit leaks &amp; exactly what to do next.
+            </p>
+          </div>
+
+          <h3 className="main-features-title">Main Features</h3>
           
           <div className="feature-grid">
             {/* 1. Inventory Intelligence */}
@@ -609,7 +677,7 @@ if (!mounted) {
       <section className="page-shell">
         <div className="mobile-highlight">
           <div className="mobile-icons">
-            📱 Optimized For Android & iPhone • 🖨 Clean Receipt Printing - Works With Mini Bluetooth Printers
+            📱 Optimized For Android & iPhone • 🖨 Clean Receipt Printing - Works With Mini Bluetooth Printers • 📶 Emergency Offline Sales
           </div>
 
           <h3>Run Your Entire Store From Your Phone</h3>

@@ -15,6 +15,8 @@ type PosState = {
   cart: CartItem[]
   discount: number
   paymentType: 'cash' | 'pos' | 'transfer'
+  checkoutKey: string | null
+  ensureCheckoutKey: () => string
   addToCart: (item: Omit<CartItem, 'qty'>) => void
   removeFromCart: (productId: string) => void
   updateQty: (productId: string, qty: number) => void
@@ -31,6 +33,7 @@ export const usePosStore = create<PosState>()(
       cart: [],
       discount: 0,
       paymentType: 'cash',
+      checkoutKey: null,
       
       addToCart: (item) => {
         const cart = get().cart
@@ -69,7 +72,14 @@ export const usePosStore = create<PosState>()(
 
       setDiscount: (discount) => set({ discount }),
       setPaymentType: (paymentType) => set({ paymentType }),
-      clearCart: () => set({ cart: [], discount: 0 }),
+      ensureCheckoutKey: () => {
+        const existing = get().checkoutKey
+        if (existing) return existing
+        const key = crypto.randomUUID()
+        set({ checkoutKey: key })
+        return key
+      },
+      clearCart: () => set({ cart: [], discount: 0, checkoutKey: null }),
       
       subtotal: () => {
         return get().cart.reduce((sum, item) => sum + item.price * item.qty, 0)

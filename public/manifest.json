@@ -1,0 +1,21 @@
+{
+  "name": "SalesTrack Pro",
+  "short_name": "SalesTrack",
+  "description": "Cloud-based Inventory, POS & Sales software",
+  "start_url": "/pos",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/landing-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/landing-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

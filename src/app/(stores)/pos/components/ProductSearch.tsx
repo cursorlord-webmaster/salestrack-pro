@@ -7,6 +7,7 @@ import { Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePosStore } from '@/lib/pos/usePosStore'
 import { toast } from 'sonner'
+import { saveProductsCache, getProductsCache } from '@/lib/offline/db'
 
 export function ProductSearch() {
   const [search, setSearch] = useState('')
@@ -16,6 +17,28 @@ export function ProductSearch() {
   const { addToCart } = usePosStore()
   const supabase = createClient()
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Sync all products to IndexedDB on mount (online) - so offline search works
+  useEffect(() => {
+    const syncCache = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data: profile } = await supabase.from('profiles').select('store_id').eq('id', user.id).maybeSingle()
+        if (!profile?.store_id) return
+        const { data: allProducts } = await supabase
+          .from('products')
+          .select('id, name, sku, barcode, quick_search_name, selling_price, cost_price, quantity, active')
+          .eq('store_id', profile.store_id)
+          .eq('active', true)
+          .limit(10000)
+        if (allProducts) {
+          await saveProductsCache(profile.store_id, allProducts as any)
+        }
+      } catch { /* offline - ignore, cache already exists */ }
+    }
+    syncCache()
+  }, [])
 
   // Auto-search when 3+ letters typed
   useEffect(() => {
@@ -42,6 +65,36 @@ export function ProductSearch() {
 
     setLoading(true)
     setStatusMessage(null)
+
+    // OFFLINE FIRST — must be before ANY Supabase call, or getUser() throws Failed to fetch
+    if (!navigator.onLine) {
+      const store_id = localStorage.getItem('salestrack_store_id') || ''
+      if (!store_id) {
+        setResults([])
+        setStatusMessage("No cached product found offline - try when online to sync")
+        setLoading(false)
+        return
+      }
+      const cached = await getProductsCache(store_id)
+      const term = trimmed.toLowerCase()
+      const filtered = (cached?.products || []).filter(p =>
+        p.quantity > 0 && (
+          p.name.toLowerCase().includes(term) ||
+          (p.sku || '').toLowerCase().includes(term) ||
+          (p.barcode || '') === trimmed ||
+          (p.quick_search_name || '').toLowerCase().includes(term)
+        )
+      ).slice(0, 10)
+      if (filtered.length > 0) {
+        setResults(filtered)
+        setStatusMessage(null)
+      } else {
+        setResults([])
+        setStatusMessage("No cached product found offline - try when online to sync")
+      }
+      setLoading(false)
+      return
+    }
 
     const { data: { user } } = await supabase.auth.getUser()
 
