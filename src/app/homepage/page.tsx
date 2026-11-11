@@ -568,7 +568,7 @@ if (!mounted) {
               <b>Emergency Offline Sales:</b> {' '} If your internet is lost during sales, your POS keeps selling and <b>sync automatically with the cloud</b> when internet returns.
             </p>
             <p className="hero-bonus">
-              <b>Business Analytics:</b> {' '} A highly professional, periodic, business-intelligence analysis of your store's weekly, monthly, 3-month, 6-month &amp; yearly sales - showing your profit, profit opportunities you missed, top selling products by categories, profit leaks &amp; exactly what to do next.
+              <b>Business Analytics:</b> {' '} A highly professional, periodic, business-intelligence analysis of your store's weekly, monthly, 3-month, 6-month &amp; yearly sales - showing what your record books can't show you. With a click you can see your hidden profits, store performance, top-selling products, profit leaks, missed growth opportunities & exactly what to do next.
             </p>
           </div>
 
