@@ -79,19 +79,45 @@ export default function SalesHistoryPage() {
       const endDate = new Date(selectedDate)
       endDate.setHours(23, 59, 59, 999)
 
-      // Product search mode: query sale_items first
-      if (searchMode === 'product' && searchQuery) {
-        // 1. Find sale_items matching product name + date
+      // Product search: ALWAYS try product first when there's a query, no button click needed
+      // searchMode is now just for display (Qnty vs Items), not for gating the query
+      if (searchQuery) {
+        // 1. Find sale_items matching product name + date (filter via parent sales row)
         const { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
-        .select('sale_id, quantity, total_price')
-        .eq('store_id', profile.store_id)
+        .select('sale_id, quantity, total_price, sales!inner(store_id, created_at, is_voided)')
         .ilike('product_name', `%${searchQuery}%`)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
+        .eq('sales.store_id', profile.store_id)
+        .eq('sales.is_voided', false)
+        .gte('sales.created_at', startDate.toISOString())
+        .lte('sales.created_at', endDate.toISOString())
 
         if (itemsError) throw itemsError
-        if (!itemsData || itemsData.length === 0) return []
+        // Fallback: if no product matches, try receipt# / staff_name for the same date
+        // This makes one search box work for all three: product, receipt, staff
+        if (!itemsData || itemsData.length === 0) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('sales')
+            .select(`*, sale_items(count)`)
+            .eq('store_id', profile.store_id)
+            .eq('is_voided', false)
+            .gte('created_at', startDate.toISOString())
+            .lte('created_at', endDate.toISOString())
+            .or(`receipt_no.ilike.%${searchQuery}%,staff_name.ilike.%${searchQuery}%`)
+            .order('created_at', { ascending: false })
+
+          if (fallbackError) throw fallbackError
+          if (!fallbackData || fallbackData.length === 0) return []
+
+          // Return fallback sales in normal display (Items + Total, not Qnty + Product Total)
+          // We keep searchMode = 'product' for the header, but show full sale totals
+          return fallbackData.map((sale: any) => ({
+            ...sale,
+            item_count: sale.sale_items?.[0]?.count || 0,
+            product_qty: sale.sale_items?.[0]?.count || 0,
+            product_total: Number(sale.total),
+          })) as SaleRecord[]
+        }
 
         // 2. Aggregate by sale_id
         const saleMap: Record<string, { qty: number; total: number }> = {}
@@ -180,7 +206,7 @@ export default function SalesHistoryPage() {
     .from('sale_items')
     .select('*')
     .eq('sale_id', sale.id)
-    .eq('store_id', sale.store_id)
+    // sale_items has no store_id — don't filter by it, sale_id is already unique to this store's sale
 
     if (error) {
       console.error('Failed to fetch sale items:', error)
@@ -216,6 +242,7 @@ export default function SalesHistoryPage() {
             onChange={(e) => {
               setSearchQuery(e.target.value)
               if (!e.target.value) setSearchMode('normal')
+              else setSearchMode('product')
             }}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             className="w-full text-black bg-white border-gray-300 pr-8"

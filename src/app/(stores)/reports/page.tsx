@@ -198,13 +198,13 @@ export default function ReportsPage() {
     enabled:!!profile?.store_id && analyticsView === 'products'
   })
 
-// Most Profitable Product Today
+// Most Profitable Product — respects selected Period (was hardcoded to Today)
   const { data: mostProfitable } = useQuery({
-    queryKey: ['most-profitable', profile?.store_id],
+    queryKey: ['most-profitable', profile?.store_id, period, startDate, endDate],
     queryFn: async (): Promise<TopProduct[]> => {
       if (!profile?.store_id || analyticsView!== 'mostProfitable') return []
 
-      const [start, end] = [startOfDay(new Date()), endOfDay(new Date())]
+      const [start, end] = getDateRange()
 
       const { data, error } = await supabase
 .from('sale_items')
@@ -323,7 +323,7 @@ export default function ReportsPage() {
     enabled:!!profile?.store_id && analyticsView === 'categoryLeader'
   })
 
-  // Non-Selling Products
+  // Non-Selling Products — FIXED: same key (product_name) as Most Sold + real inventory qty
   const { data: nonSelling } = useQuery({
     queryKey: ['non-selling', profile?.store_id, period, startDate, endDate],
     queryFn: async () => {
@@ -331,37 +331,53 @@ export default function ReportsPage() {
 
       const [start, end] = getDateRange()
 
+      // 1. All active products — keep products.quantity as fallback
       const { data: allProducts, error: productsError } = await supabase
-.from('products')
-.select('id, name, quantity, cost_price, selling_price')
-.eq('store_id', profile.store_id)
-.eq('is_active', true)
+        .from('products')
+        .select('id, name, quantity, cost_price, selling_price')
+        .eq('store_id', profile.store_id)
+        .eq('is_active', true)
 
       if (productsError) return []
 
+      // 2. Real stock from inventory table (the same table Movements uses)
+      const { data: invData } = await supabase
+        .from('inventory')
+        .select('product_id, quantity')
+        .eq('store_id', profile.store_id)
+
+      const invMap = new Map<string, number>()
+      invData?.forEach((row: any) => invMap.set(row.product_id, Number(row.quantity) || 0))
+
+      // 3. Sold products — SAME KEY as Most Sold: product_name, with limit
       const { data: soldItems, error: salesError } = await supabase
-.from('sale_items')
-.select(`product_id, sales!inner(store_id, created_at, is_voided)`)
-.eq('sales.store_id', profile.store_id)
-.eq('sales.is_voided', false)
-.gte('sales.created_at', start.toISOString())
-.lte('sales.created_at', end.toISOString())
+        .from('sale_items')
+        .select(`product_name, sales!inner(store_id, created_at, is_voided)`)
+        .eq('sales.store_id', profile.store_id)
+        .eq('sales.is_voided', false)
+        .gte('sales.created_at', start.toISOString())
+        .lte('sales.created_at', end.toISOString())
+        .limit(2000)
 
       if (salesError) return []
 
-      const soldProductIds = new Set(soldItems?.map((item: any) => item.product_id))
+      const soldNames = new Set(soldItems?.map((item: any) => item.product_name))
 
+      // 4. Non-Selling = active + in stock + ZERO sales by NAME in this period
+      // A product can NEVER be in both lists now — same key, same period
       return allProducts
-.filter(p =>!soldProductIds.has(p.id))
-.map(p => ({
-  name: p.name,
-  quantity: p.quantity,
-  revenue: 0,
-  profit: 0,
-  costPrice: Number(p.cost_price),
-  sellingPrice: Number(p.selling_price)
-}))
-.sort((a, b) => b.quantity - a.quantity)
+        .filter(p => !soldNames.has(p.name))
+        .map(p => ({
+          name: p.name,
+          // Use inventory qty if we have it, else fall back to products.quantity
+          // If inventory table is empty / mismatched, we don't hide the product
+          quantity: invMap.get(p.id) ?? Number(p.quantity) ?? 0,
+          revenue: 0,
+          profit: 0,
+          costPrice: Number(p.cost_price),
+          sellingPrice: Number(p.selling_price)
+        }))
+        .sort((a, b) => b.quantity - a.quantity)
     },
     enabled:!!profile?.store_id && analyticsView === 'nonSelling'
   })
@@ -408,30 +424,107 @@ export default function ReportsPage() {
       const { default: jsPDF } = await import('jspdf')
       const { default: autoTable } = await import('jspdf-autotable')
 
-      const salesList = await fetchSalesForExport()
       const doc = new jsPDF()
       const [start] = getDateRange()
+
+      // Human-readable view name — not the code name (products -> Most Sold Products)
+      const viewLabels: Record<string, string> = {
+        revenue: 'Revenue & Profit',
+        payment: 'Payment Methods',
+        customers: 'Total Customers',
+        products: 'Most Sold Products',
+        mostProfitable: 'Most Profitable',
+        slowestMoving: 'Slowest Moving',
+        categoryLeader: 'Category Leader',
+        nonSelling: 'Non-Selling Products',
+      }
+      const viewLabel = viewLabels[analyticsView] || analyticsView
+
+      // jsPDF Helvetica has NO ₦ glyph — it renders as a broken double-line
+      // Use N (like the thermal receipt) so amounts print cleanly
+      const formatNairaPDF = (amount: number) => {
+        return `N${Number(amount).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+      }
 
       doc.setFontSize(18)
       doc.text('SalesTrack Pro - Analytics Report', 105, 15, { align: 'center' })
       doc.setFontSize(11)
-      doc.text(`View: ${analyticsView.toUpperCase()} | Period: ${getPeriodLabel()}`, 105, 22, { align: 'center' })
+      doc.text(`View: ${viewLabel} | Period: ${getPeriodLabel()}`, 105, 22, { align: 'center' })
 
-      const tableData = salesList.map(sale => [
-        sale.receipt_no,
-        format(new Date(sale.created_at), 'MMM d, h:mm a'),
-        sale.staff_name || 'System',
-        sale.payment_method.toUpperCase(),
-        formatNaira(Number(sale.total)),
-        formatNaira(Number(sale.profit || 0))
-      ])
+      let head: string[][] = []
+      let body: any[][] = []
+
+      if (analyticsView === 'products' && topProducts) {
+        head = [['Rank', 'Product', 'Qty Sold', 'Revenue', 'Profit']]
+        body = topProducts.map((p, i) => [i + 1, p.name, p.quantity, formatNairaPDF(p.revenue), formatNairaPDF(p.profit)])
+      } else if (analyticsView === 'nonSelling' && nonSelling) {
+        head = [['Product', 'In Stock', 'Cost Price', 'Selling Price', 'Stock Value']]
+        body = nonSelling.map(p => [p.name, p.quantity, formatNairaPDF(p.costPrice), formatNairaPDF(p.sellingPrice), formatNairaPDF(p.quantity * p.costPrice)])
+      } else if (analyticsView === 'slowestMoving' && slowestMoving) {
+        head = [['Rank', 'Product', 'Qty Sold', 'Revenue', 'Profit']]
+        body = slowestMoving.map((p, i) => [i + 1, p.name, p.quantity, formatNairaPDF(p.revenue), formatNairaPDF(p.profit)])
+      } else if (analyticsView === 'categoryLeader' && categoryLeader) {
+        head = [['Rank', 'Category', 'Units Sold', 'Revenue', 'Profit']]
+        body = categoryLeader.map((c: any, i: number) => [i + 1, c.name, c.quantity, formatNairaPDF(c.revenue), formatNairaPDF(c.profit)])
+      } else if (analyticsView === 'mostProfitable' && mostProfitable) {
+        head = [['Product', 'Qty Sold', 'Revenue', 'Profit']]
+        body = mostProfitable.map(p => [p.name, p.quantity, formatNairaPDF(p.revenue), formatNairaPDF(p.profit)])
+      } else {
+        // Revenue / Payment / Customers — export sales list (this is correct for these views)
+        const salesList = await fetchSalesForExport()
+        head = [['Receipt', 'Date/Time', 'Staff', 'Method', 'Total', 'Profit']]
+        body = salesList.map(sale => [
+          sale.receipt_no,
+          format(new Date(sale.created_at), 'MMM d, h:mm a'),
+          sale.staff_name || 'System',
+          sale.payment_method.toUpperCase(),
+          formatNairaPDF(Number(sale.total)),
+          formatNairaPDF(Number(sale.profit || 0))
+        ])
+      }
 
       autoTable(doc, {
         startY: 30,
-        head: [['Receipt', 'Date/Time', 'Staff', 'Method', 'Total', 'Profit']],
-        body: tableData,
-        styles: { halign: 'center' },
-        headStyles: { fillColor: [51, 65, 85] }
+        head,
+        body,
+        theme: 'grid',
+        margin: { top: 30, left: 10, right: 10, bottom: 15 },
+        tableWidth: 'auto',
+        styles: {
+          halign: 'center',
+          valign: 'middle',
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [203, 213, 225],
+          lineWidth: 0.2,
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [51, 65, 85],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        bodyStyles: {
+          textColor: [15, 23, 42],
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          // First column (Rank / Product) — left-align + wrap long names
+          0: { halign: 'left', cellWidth: 'auto', overflow: 'linebreak' },
+          // Last columns (money) — right-align so figures line up
+          // autoTable applies this to all remaining columns by index, we set the money ones
+        },
+        // Keep product-name column from pushing money off the page
+        didParseCell: (data) => {
+          // If this is the Product / Category column (2nd col in most views, 1st in Non-Selling)
+          // let it wrap instead of expanding
+          if (data.column.index === 1 && data.section === 'body') {
+            data.cell.styles.cellWidth = 'wrap'
+          }
+        },
       })
 
       doc.save(`analytics-${analyticsView}-${format(start, 'yyyy-MM-dd')}.pdf`)
@@ -444,11 +537,29 @@ export default function ReportsPage() {
     setIsExporting(true)
     try {
       const XLSX = await import('xlsx')
-      const salesList = await fetchSalesForExport()
       const [start] = getDateRange()
 
-      const ws = XLSX.utils.json_to_sheet(
-        salesList.map(sale => ({
+      let rows: any[] = []
+      let sheetName = 'Analytics'
+
+      if (analyticsView === 'products' && topProducts) {
+        rows = topProducts.map((p, i) => ({ 'Rank': i + 1, 'Product': p.name, 'Qty Sold': p.quantity, 'Revenue (₦)': p.revenue, 'Profit (₦)': p.profit }))
+        sheetName = 'Most Sold'
+      } else if (analyticsView === 'nonSelling' && nonSelling) {
+        rows = nonSelling.map(p => ({ 'Product': p.name, 'In Stock': p.quantity, 'Cost Price (₦)': p.costPrice, 'Selling Price (₦)': p.sellingPrice, 'Stock Value (₦)': p.quantity * p.costPrice }))
+        sheetName = 'Non-Selling'
+      } else if (analyticsView === 'slowestMoving' && slowestMoving) {
+        rows = slowestMoving.map((p, i) => ({ 'Rank': i + 1, 'Product': p.name, 'Qty Sold': p.quantity, 'Revenue (₦)': p.revenue, 'Profit (₦)': p.profit }))
+        sheetName = 'Slowest Moving'
+      } else if (analyticsView === 'categoryLeader' && categoryLeader) {
+        rows = categoryLeader.map((c: any, i: number) => ({ 'Rank': i + 1, 'Category': c.name, 'Units Sold': c.quantity, 'Revenue (₦)': c.revenue, 'Profit (₦)': c.profit }))
+        sheetName = 'Category Leader'
+      } else if (analyticsView === 'mostProfitable' && mostProfitable) {
+        rows = mostProfitable.map(p => ({ 'Product': p.name, 'Qty Sold': p.quantity, 'Revenue (₦)': p.revenue, 'Profit (₦)': p.profit }))
+        sheetName = 'Most Profitable'
+      } else {
+        const salesList = await fetchSalesForExport()
+        rows = salesList.map(sale => ({
           'Receipt No': sale.receipt_no,
           'Date/Time': format(new Date(sale.created_at), 'MMM d, yyyy h:mm a'),
           'Staff': sale.staff_name || 'System',
@@ -456,9 +567,11 @@ export default function ReportsPage() {
           'Total (₦)': Number(sale.total),
           'Profit (₦)': Number(sale.profit || 0)
         }))
-      )
+      }
+
+      const ws = XLSX.utils.json_to_sheet(rows)
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Analytics')
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
       XLSX.writeFile(wb, `analytics-${analyticsView}-${format(start, 'yyyy-MM-dd')}.xlsx`)
     } finally {
       setIsExporting(false)
@@ -515,7 +628,7 @@ export default function ReportsPage() {
         <SelectItem value="payment">Payment Methods</SelectItem>
         <SelectItem value="customers">Total Customers</SelectItem>
         <SelectItem value="products">Most Sold Products</SelectItem>
-        <SelectItem value="mostProfitable">Most Profitable Today</SelectItem>
+        <SelectItem value="mostProfitable">Most Profitable</SelectItem>
         <SelectItem value="slowestMoving">Slowest Moving</SelectItem>
         <SelectItem value="categoryLeader">Category Leader</SelectItem>
         <SelectItem value="nonSelling">Non-Selling Products</SelectItem>
@@ -613,7 +726,7 @@ export default function ReportsPage() {
               {analyticsView === 'mostProfitable' && mostProfitable && mostProfitable.length > 0 && (
                 <>
                   <TrendingUp className="inline h-4 w-4 mr-1 text-emerald-600" />
-                  Today's Winner: <span className="text-slate-900 font-bold">{mostProfitable[0].name}</span>
+                  Winner ({getPeriodLabel()}): <span className="text-slate-900 font-bold">{mostProfitable[0].name}</span>
                   <span className="mx-2 sm:mx-3 text-slate-300">|</span>
                   Profit: <span className="text-emerald-600 font-bold">{formatNaira(mostProfitable[0].profit)}</span>
                 </>
@@ -720,7 +833,7 @@ export default function ReportsPage() {
         <Card className="bg-white border-slate-200 rounded">
           <CardHeader className="border-b border-slate-200 pb-3">
             <CardTitle className="text-lg font-semibold text-slate-900 text-center">
-              Most Profitable Product Today
+              Most Profitable Product - {getPeriodLabel()}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
@@ -743,7 +856,7 @@ export default function ReportsPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-center text-slate-500 py-12">No sales today yet</div>
+              <div className="text-center text-slate-500 py-12">No sales for {getPeriodLabel()} yet</div>
             )}
           </CardContent>
         </Card>
