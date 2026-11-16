@@ -118,30 +118,29 @@ Then:
 
 The software also checks your store's stock health, profit leaks, and audit issues to confirm the level.
 
-To lower your risk, check and resolve what you see in "What Is Killing Your Profit" section on this page.
+To lower your risk, check and act on what you see in "Where Your Profit Can Grow" section on this page.
 
 Example: If your profit margin is 5%, Risk Score = 100 - (5 × 4) = 80. Result: High Risk.`
   },
   opportunity: {
     title: 'How Profit Opportunities Is Calculated',
-    body: `Profit Opportunities simply means 'The Money' you can recover based on the sales record seen at this period.
+    body: `Profit Opportunities means extra profit you can still gain from your own sales record this period.
 
 Formula Used:
-Opportunity Value = Sum of All Losses Found
+Opportunity Value = Missed Profit vs Your Shop Average + Value Tied Up in Slow Goods
 
-These are the 3 areas where losses are coming from:
-1. Items With Small Profit
-   Loss = (Target 15% Profit - Actual Profit) × Quantity sold
-2. Goods Not Selling 
-   Loss = 30% of Cost Value of items unsold for 90+ days
-3. Voided/Deleted Sales
-   Loss = Profit you would have made on those sales
+These are the 2 areas:
+1. Below Your Shop Average
+   Missed Profit = (Your Shop Average % × Revenue of that product) - Real Profit of that product
+   Example: Your average is 15.9%. Peak Milk made 5.7%. The gap is missed profit you can close by raising price a little or buying cheaper. You still made profit - just less than your average.
+2. Goods Not Selling
+   Tied-up Value = 30% of Cost Value of items unsold for 90+ days
 
-So, Profit Opportunities simply means the estimated Naira you can gain if you act on the suggestions generated on this page by the Software's Accounting Intelligence.
+So, Profit Opportunities is the estimated Naira you can gain if you act on the suggestions on this page.
 
-Check "Key Actions This Period" to see exactly what to do from time to time.
+Check "Key Actions This Period" to see exactly what to do.
 
-Example: Small profit loss ₦352 + Dead stock loss ₦8,400 = ₦8,752 Profit Opportunity.`
+Example: Missed profit ₦352 + Slow goods value ₦8,400 = ₦8,752 Profit Opportunity.`
   },
   forecast: {
     title: 'How the 3 Month Forecast is Derived',
@@ -547,8 +546,8 @@ export default function AnalyticsPage() {
 <Card className="bg-white border-slate-200">
   <CardHeader className="border-b border-slate-200">
     <CardTitle className="text-lg font-semibold text-slate-900 text-center flex items-center justify-center gap-2">
-      What Is Killing Your Profit?
-      <TrendingDown className="h-5 w-5 text-red-600" />
+      Where Your Profit Can Grow
+      <TrendingDown className="h-5 w-5 text-amber-600" />
     </CardTitle>
   </CardHeader>
   <CardContent className="p-6">
@@ -556,9 +555,9 @@ export default function AnalyticsPage() {
       {snapshot.profit_leaks && snapshot.profit_leaks.length > 0? (
         snapshot.profit_leaks.slice(0, 3).map((leak, idx) => (
           <details key={idx} className="group">
-            <summary className="flex items-start gap-4 p-4 bg-red-50 rounded border border-red-100 cursor-pointer list-none hover:bg-red-100 transition-colors">
+            <summary className="flex items-start gap-4 p-4 bg-amber-50 rounded border border-amber-200 cursor-pointer list-none hover:bg-amber-100 transition-colors">
               <div className="shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
@@ -568,8 +567,8 @@ export default function AnalyticsPage() {
                   )}
                 </div>
                 <p className="text-xs text-slate-600 mt-0.5">{leak.reason}</p>
-                <p className="text-xs text-red-700 font-semibold mt-1">
-                  Est. Loss: {formatNaira(leak.loss_naira)}
+                <p className="text-xs text-amber-800 font-semibold mt-1">
+                 For the selected period, your Total Missed Profit compared to Your Average Profit is: {formatNaira(leak.loss_naira)}
                 </p>
               </div>
             </summary>
@@ -577,7 +576,7 @@ export default function AnalyticsPage() {
             {leak.items && leak.items.length > 0 && (
               <div className="mt-2 p-4 bg-white border border-red-100 rounded">
                 <p className="text-xs font-semibold text-slate-700 mb-3">
-                  Top {leak.items.length} items causing this loss:
+                  Top {leak.items.length} products below your average - still giving you profit, just less than your average:
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -587,7 +586,7 @@ export default function AnalyticsPage() {
                         <th className="pb-2 font-medium text-right">Cost</th>
                         <th className="pb-2 font-medium text-right">Price</th>
                         <th className="pb-2 font-medium text-right">Qty</th>
-                        <th className="pb-2 font-medium text-right">Loss</th>
+                        <th className="pb-2 font-medium text-right">Missed Profit</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -597,7 +596,7 @@ export default function AnalyticsPage() {
                           <td className="py-2 text-right text-slate-600">{formatNaira(item.cost_price)}</td>
                           <td className="py-2 text-right text-slate-600">{formatNaira(item.unit_price)}</td>
                           <td className="py-2 text-right text-slate-600">{item.quantity}</td>
-                          <td className="py-2 text-right text-red-600 font-semibold">
+                          <td className="py-2 text-right text-amber-700 font-semibold">
                             {formatNaira(item.total_loss)}
                           </td>
                         </tr>
@@ -605,8 +604,11 @@ export default function AnalyticsPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-2">
-                  *Loss = target 15% profit minus actual profit per item
+                <p className="text- text-slate-500 mt-2">
+                  *Missed Profit (as seen in the Missed Profit column above) shows the extra money you would have made if these items matched your shop's average profit margin. You still made a profit on these products based on your cost price, just less than your usual average profit.
+                </p>
+                <p className="text- text-emerald-700 mt-1 font-medium">
+                  Growth Tip: For items giving you 25% profit or more which only sell 1–2 units a week, push and display them more. Avoid giving discounts on these products so your profit stays strong and steady!
                 </p>
               </div>
             )}
@@ -615,8 +617,8 @@ export default function AnalyticsPage() {
       ) : (
         <div className="text-center py-8">
           <TrendingDown className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-          <p className="text-sm font-semibold text-slate-900">No Profit Leaks Detected</p>
-          <p className="text-xs text-slate-600 mt-1">Your business is running efficiently this period</p>
+          <p className="text-sm font-semibold text-slate-900">All Products At or Above Your Average</p>
+          <p className="text-xs text-slate-600 mt-1">Every product is pulling its weight this period. Keep it up.</p>
         </div>
       )}
     </div>

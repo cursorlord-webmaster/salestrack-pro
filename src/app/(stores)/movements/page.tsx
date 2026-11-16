@@ -11,6 +11,7 @@ import { CornerRightDown, CornerUpRight, ShieldX } from 'lucide-react'
 
 type MovementRecord = {
   id: string
+  product_id: string
   movement_type: 'purchase' | 'sale' | 'adjustment' | 'damage' | 'theft' | 'correction' | 'expired'
   quantity: number
   quantity_before: number | null
@@ -98,14 +99,15 @@ export default function InventoryMovementsPage() {
   }, [supabase])
 
   const { data: movements, isLoading } = useQuery({
-    queryKey: ['inventory_movements', storeId, selectedDate, activeTab],
+    queryKey: ['inventory_movements', storeId],
     queryFn: async () => {
       if (!storeId) return [] as MovementRecord[]
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('inventory_movements')
         .select(`
           id,
+          product_id,
           movement_type,
           quantity,
           quantity_before,
@@ -118,34 +120,74 @@ export default function InventoryMovementsPage() {
         `)
         .eq('store_id', storeId)
         .order('created_at', { ascending: false })
-
-      const dateToUse = activeTab === 'today' ? today : selectedDate
-      if (dateToUse) {
-        const start = new Date(dateToUse)
-        start.setHours(0, 0, 0, 0)
-        const end = new Date(dateToUse)
-        end.setHours(23, 59, 59, 999)
-        query = query.gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
-      }
-
-      if (activeTab === 'in') {
-        query = query.eq('movement_type', 'purchase')
-      }
-      if (activeTab === 'out') {
-        query = query.in('movement_type', ['sale', 'damage', 'theft', 'correction', 'expired', 'adjustment'])
-      }
-
-      const { data, error } = await query
       if (error) throw error
       return data as unknown as MovementRecord[]
     },
     enabled: !!storeId && role !== 'cashier',
   })
 
+  // Rebuild true Before/After by walking backwards from today's real stock.
+  // If DB already has Before/After saved, trust it. Otherwise compute it.
+  // This fixes old rows where quantity_before/after is null.
+  const correctedMovements = useMemo(() => {
+    const all = movements || []
+    const byProduct = new Map<string, MovementRecord[]>()
+    for (const m of all) {
+      const key = m.product_id || m.products?.name || 'unknown'
+      if (!byProduct.has(key)) byProduct.set(key, [])
+      byProduct.get(key)!.push(m)
+    }
+    const resolved = new Map<string, { before: number | null; after: number | null }>()
+    for (const [, list] of byProduct) {
+      // list is already newest-first. Walk newest -> oldest.
+      let runningAfter: number | null = list[0]?.products?.quantity ?? null
+      for (const m of list) {
+        if (m.quantity_before !== null && m.quantity_after !== null) {
+          resolved.set(m.id, { before: m.quantity_before, after: m.quantity_after })
+          runningAfter = m.quantity_before
+          continue
+        }
+        if (runningAfter === null) {
+          resolved.set(m.id, { before: null, after: null })
+          continue
+        }
+        const signed = m.movement_type === 'purchase' ? m.quantity : -m.quantity
+        const after = runningAfter
+        const before = after - signed
+        resolved.set(m.id, { before, after })
+        runningAfter = before
+      }
+    }
+    return all.map((m) => ({
+      ...m,
+      quantity_before: resolved.get(m.id)?.before ?? m.quantity_before,
+      quantity_after: resolved.get(m.id)?.after ?? m.quantity_after,
+    }))
+  }, [movements])
+
   const filteredMovements = useMemo(() => {
-    if (!searchQuery) return movements || []
+    let list = correctedMovements
+    // Date filter — same behaviour as before, but after correction
+    const dateToUse = activeTab === 'today' ? today : selectedDate
+    if (dateToUse) {
+      const start = new Date(dateToUse)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(dateToUse)
+      end.setHours(23, 59, 59, 999)
+      list = list.filter((m) => {
+        const d = new Date(m.created_at)
+        return d >= start && d <= end
+      })
+    }
+    if (activeTab === 'in') {
+      list = list.filter((m) => m.movement_type === 'purchase')
+    }
+    if (activeTab === 'out') {
+      list = list.filter((m) => ['sale', 'damage', 'theft', 'correction', 'expired', 'adjustment'].includes(m.movement_type))
+    }
+    if (!searchQuery) return list
     const q = searchQuery.toLowerCase()
-    return (movements || []).filter((m: any) => {
+    return list.filter((m: any) => {
       const productName = m.products?.name?.toLowerCase() || ''
       const staffName = m.profiles?.full_name?.toLowerCase() || ''
       const rawType = m.movement_type?.toLowerCase() || ''
@@ -161,7 +203,7 @@ export default function InventoryMovementsPage() {
         reason.includes(q)
       )
     })
-  }, [movements, searchQuery])
+  }, [correctedMovements, searchQuery, selectedDate, activeTab, today])
 
   if (role === 'cashier') {
     return (
@@ -327,29 +369,8 @@ export default function InventoryMovementsPage() {
                   const parsed = parseReason(m.reason)
                   const isIn = m.movement_type === 'purchase'
 
-                  let before = m.quantity_before
-                  let after = m.quantity_after
-
-                  if (before === null && m.reason) {
-                    const bm = m.reason.match(/Before:\s*(\d+)/i)
-                    if (bm) before = parseInt(bm[1])
-                  }
-                  if (after === null && m.reason) {
-                    const am = m.reason.match(/After:\s*(\d+)/i)
-                    if (am) after = parseInt(am[1])
-                  }
-
-                  if (before === null && after !== null) {
-                    before = isIn ? after - m.quantity : after + m.quantity
-                  }
-                  if (after === null && before !== null) {
-                    after = isIn ? before + m.quantity : before - m.quantity
-                  }
-                  if (before === null && m.products?.quantity !== undefined) {
-                    const curr = m.products.quantity
-                    before = isIn ? curr - m.quantity : curr + m.quantity
-                    if (after === null) after = curr
-                  }
+                  const before = m.quantity_before
+                  const after = m.quantity_after
 
                   const detailText = `${parsed.note}${parsed.note && parsed.responsible ? ' | ' : ''}${parsed.responsible ? `Staff Responsible: ${parsed.responsible}` : ''}`.trim()
 
@@ -372,7 +393,7 @@ export default function InventoryMovementsPage() {
                           {detailText && (
                             <span
                               title={detailText}
-                              className="inline-block bg-black text-white px-2.5 py-1 text-xs font-medium rounded-[5px] max-w-[280px] text-center leading-tight break-words"
+                              className="inline-block bg-black text-white px-3 py-1.5 text-xs font-medium rounded- overflow-hidden w-full max-w- text-center leading-snug whitespace-normal break-words"
                             >
                               {detailText}
                             </span>
@@ -414,24 +435,8 @@ export default function InventoryMovementsPage() {
           filteredMovements.map((m) => {
             const parsed = parseReason(m.reason)
             const isIn = m.movement_type === 'purchase'
-            let before = m.quantity_before
-            let after = m.quantity_after
-
-            if (before === null && m.reason) {
-              const bm = m.reason.match(/Before:\s*(\d+)/i)
-              if (bm) before = parseInt(bm[1])
-            }
-            if (after === null && m.reason) {
-              const am = m.reason.match(/After:\s*(\d+)/i)
-              if (am) after = parseInt(am[1])
-            }
-
-            if (before === null && after !== null) before = isIn ? after - m.quantity : after + m.quantity
-            if (after === null && before !== null) after = isIn ? before + m.quantity : before - m.quantity
-            if (before === null && m.products?.quantity !== undefined) {
-              before = isIn ? m.products.quantity - m.quantity : m.products.quantity + m.quantity
-              after = m.products.quantity
-            }
+            const before = m.quantity_before
+            const after = m.quantity_after
 
             const detailText = `${parsed.note}${parsed.note && parsed.responsible ? ' | ' : ''}${parsed.responsible ? `Staff Responsible: ${parsed.responsible}` : ''}`.trim()
 

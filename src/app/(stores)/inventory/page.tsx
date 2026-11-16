@@ -87,8 +87,9 @@ const [profile, setProfile] = useState<any>(null)
   const [pendingVertical, setPendingVertical] = useState<string | null>(null);
   // --- Damage/Theft surgical ---
   const [showAdjustModal, setShowAdjustModal] = useState(false)
-  const [adjustType, setAdjustType] = useState<"damage" | "theft" | "correction" | "adjustment">("damage")
-  const [adjustQty, setAdjustQty] = useState(1)
+  const [adjustDirection, setAdjustDirection] = useState<"add" | "remove">("remove")
+  const [adjustType, setAdjustType] = useState<"restock" | "damage" | "theft" | "expired" | "correction" | "adjustment">("damage")
+  const [adjustQty, setAdjustQty] = useState("")
   const [adjustReason, setAdjustReason] = useState("")
   const [adjustResponsible, setAdjustResponsible] = useState("")
   const [adjusting, setAdjusting] = useState(false)
@@ -354,14 +355,13 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
     const categoryName = formData.get('category') as string
     const categoryId = await getOrCreateCategory(categoryName)
 
-    const oldQty = selectedProduct.quantity
-    const diff = totalBaseUnits - oldQty // positive = restock, negative = manual reduction
+    // DO NOT touch quantity here — stock only moves via Adjust > Restock or Add Product
 
     const updated = {
       name: formData.get('name') as string,
       category_id: categoryId,
       barcode: formData.get('barcode') as string || null,
-      quantity: totalBaseUnits,
+      quantity: selectedProduct.quantity,
       minimum_stock: parseInt(formData.get('minimum_stock') as string),
       cost_price: unitCostPrice,
       selling_price: unitSellingPrice,
@@ -373,7 +373,6 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
       supplier: formData.get('supplier') as string || null,
       description: formData.get('description') as string || null
     }
-
     const { error } = await supabase
       .from('products')
       .update(updated)
@@ -384,20 +383,8 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
       return
     }
 
-    // === NEW: Log movement if quantity changed ===
-    if (diff !== 0) {
-      const { data: { user } } = await supabase.auth.getUser()
-      const movementType = diff > 0 ? 'purchase' : 'adjustment'
-      const reason = diff > 0 ? 'RESTOCK' : 'ADJUSTMENT'
-      await supabase.from('inventory_movements').insert({
-        store_id: storeId,
-        product_id: selectedProduct.id,
-        movement_type: movementType,
-        quantity: Math.abs(diff),
-        reason: reason,
-        created_by: user?.id || null
-      })
-    }
+    // No movement logged here — Edit only changes name/price/pack, not stock
+    // Stock only moves via Adjust > Restock or Add Product (new product only)
 
     logAudit("UPDATE", `Updated product: ${selectedProduct.name} | ID: ${selectedProduct.id}`, "inventory").catch(e =>
       console.error('Audit failed:', e)
@@ -456,33 +443,81 @@ async function handleDeleteProduct() {
 
   async function handleAdjustStock(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedProduct || adjustQty <= 0) return
-    if (adjustQty > selectedProduct.quantity) {
-      toast.error(`Cannot remove ${adjustQty}, only ${selectedProduct.quantity} in stock`)
+    const qtyToAdjust = parseInt(adjustQty) || 0
+    if (!selectedProduct || qtyToAdjust <= 0) return
+    if (adjustDirection === "remove" && qtyToAdjust > selectedProduct.quantity) {
+      toast.error(`Cannot remove ${qtyToAdjust}, only ${selectedProduct.quantity} in stock`)
       return
     }
     setAdjusting(true)
-    const fullReason = `${adjustType.toUpperCase()}: ${adjustReason} | Responsible: ${adjustResponsible || 'N/A'} | Before:${selectedProduct.quantity} After:${Math.max(0, selectedProduct.quantity - adjustQty)}`
-    
-    const { error } = await supabase.rpc('adjust_product_stock', {
-      p_product_id: selectedProduct.id,
-      p_qty: adjustQty,
-      p_type: adjustType,
-      p_reason: fullReason
-    })
+    const newQty = adjustDirection === "add"
+      ? selectedProduct.quantity + qtyToAdjust
+      : Math.max(0, selectedProduct.quantity - qtyToAdjust)
+    const fullReason = `${adjustDirection === "add" ? "RESTOCK" : adjustType.toUpperCase()}: ${adjustReason} | Responsible: ${adjustResponsible || 'N/A'} | Before:${selectedProduct.quantity} After:${newQty}`
 
-    if (error) {
-      toast.error("Adjust failed", { description: error.message })
-      setAdjusting(false)
-      return
+    if (adjustDirection === "add") {
+      // ADD path: NEVER use RPC — direct update + clean positive movement log
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ quantity: newQty })
+        .eq('id', selectedProduct.id)
+      if (updateError) {
+        toast.error("Restock failed", { description: updateError.message })
+        setAdjusting(false)
+        return
+      }
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error: moveError } = await supabase.from('inventory_movements').insert({
+        store_id: storeId,
+        product_id: selectedProduct.id,
+        movement_type: 'purchase',
+        quantity: qtyToAdjust,
+        reason: fullReason,
+        created_by: user?.id || null
+      })
+      if (moveError) {
+        toast.error("Restock saved but movement log failed", { description: moveError.message })
+        setAdjusting(false)
+        return
+      }
+    } else {
+      // REMOVE path: keep your existing RPC which was built for subtract
+      const { error: rpcError } = await supabase.rpc('adjust_product_stock', {
+        p_product_id: selectedProduct.id,
+        p_qty: qtyToAdjust,
+        p_type: adjustType,
+        p_reason: fullReason
+      })
+      if (rpcError) {
+        // Fallback if RPC fails: direct update + movement
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ quantity: newQty })
+          .eq('id', selectedProduct.id)
+        if (updateError) {
+          toast.error("Adjust failed", { description: updateError.message })
+          setAdjusting(false)
+          return
+        }
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('inventory_movements').insert({
+          store_id: storeId,
+          product_id: selectedProduct.id,
+          movement_type: adjustType,
+          quantity: qtyToAdjust,
+          reason: fullReason,
+          created_by: user?.id || null
+        })
+      }
     }
 
-    logAudit("ADJUST", `${adjustType} ${adjustQty}x ${selectedProduct.name} | ${fullReason}`, "inventory").catch(()=>{})
-    toast.success(`${adjustType} logged: -${adjustQty} ${selectedProduct.name}`)
+    logAudit("ADJUST", `${adjustDirection === "add" ? "RESTOCK +" : `${adjustType} -`}${adjustQty}x ${selectedProduct.name} | ${fullReason}`, "inventory").catch(()=>{})
+    toast.success(adjustDirection === "add" ? `Restocked: +${adjustQty} ${selectedProduct.name}` : `${adjustType} logged: -${adjustQty} ${selectedProduct.name}`)
     setShowAdjustModal(false)
     setAdjusting(false)
     setAdjustReason("")
     setAdjustResponsible("")
+    setAdjustDirection("remove")
     loadInventory()
   }
 
@@ -619,8 +654,9 @@ if (loading) {
                             variant="outline"
                             onClick={() => {
                               setSelectedProduct(item)
+                              setAdjustDirection("remove")
                               setAdjustType("damage")
-                              setAdjustQty(1)
+                              setAdjustQty("")
                               setShowAdjustModal(true)
                             }}
                             className="rounded border-amber-300 text-amber-700 hover:bg-amber-50"
@@ -717,8 +753,9 @@ if (loading) {
                             variant="outline"
                             onClick={() => {
                               setSelectedProduct(item)
+                              setAdjustDirection("remove")
                               setAdjustType("damage")
-                              setAdjustQty(1)
+                              setAdjustQty("")
                               setShowAdjustModal(true)
                             }}
                             className="rounded h-7 w-7 p-0 border-amber-300 text-amber-700 hover:bg-amber-50"
@@ -753,7 +790,7 @@ if (loading) {
 
 <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
 <DialogContent className="max-w-3xl bg-white max-h-[85vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
-          {!storeVertical ? (
+          {(!storeVertical && inventoryData.length === 0) ? (
             <div className="p-4 space-y-4">
               <DialogHeader>
                 <DialogTitle className="text-red-600 text-center text-xl font-bold">Important Notice</DialogTitle>
@@ -914,19 +951,20 @@ if (loading) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="minimum_stock" className="text-slate-700 text-center block">Reorder Level</Label>
+                  <Label htmlFor="minimum_stock" className="text-slate-700 text-center block">Low Stock Alert</Label>
                   <Input id="minimum_stock" name="minimum_stock" type="number" defaultValue="10" className="bg-white border-slate-300 text-center" />
-                  <p className="text-xs text-slate-500 text-center">Notify when reduced to (In base units)</p>
+                  <p className="text-xs text-slate-500 text-center">Show low stock when the product is reduced to (In base units)</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description" className="text-slate-700 text-center block">Description</Label>
                   <Input id="description" name="description" className="bg-white border-slate-300 text-center" />
+				  <p className="text-xs text-slate-500 text-center">Product description (optional)</p>
                 </div>
               </div>
 
               <div className="bg-slate-50 p-3 rounded border border-slate-200">
                 <p className="text-xs text-slate-600 text-center">
-                  System will auto-calculate: Total stock units, cost per unit, profit margins
+                  SalesTrack Pro accounting engine will instantly auto-calculate: Total stock units, cost per unit, profit margins and more.
                 </p>
               </div>
             </div>
@@ -1095,7 +1133,7 @@ if (loading) {
         </DialogContent>
       </Dialog>
 	  
-	        {/* --- SURGICAL: Damage/Theft/Correction Modal --- */}
+	        {/* --- SURGICAL: Damage/Theft/Correction + Restock Modal --- */}
       <Dialog open={showAdjustModal} onOpenChange={setShowAdjustModal}>
         <DialogContent className="bg-white max-w-md">
           <DialogHeader>
@@ -1103,40 +1141,57 @@ if (loading) {
             <p className="text-center text-sm text-slate-500">Current: {selectedProduct ? formatStock(selectedProduct.quantity, selectedProduct.base_unit, storeVertical) : '-'}</p>
           </DialogHeader>
           <form onSubmit={handleAdjustStock} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" onClick={() => { setAdjustDirection("add"); setAdjustType("restock") }} className={adjustDirection === "add" ? "bg-green-600 hover:!bg-green-700 hover:!text-white text-white" : "bg-white text-slate-700 border border-slate-300 hover:!bg-slate-100 hover:!text-slate-700"}>+ Add / Restock</Button>
+              <Button type="button" onClick={() => { setAdjustDirection("remove"); setAdjustType("damage") }} className={adjustDirection === "remove" ? "bg-amber-600 hover:!bg-amber-700 hover:!text-white text-white" : "bg-white text-slate-700 border border-slate-300 hover:!bg-slate-100 hover:!text-slate-700"}>- Remove / Loss</Button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-center block">Type *</Label>
-                <Select value={adjustType} onValueChange={(v:any)=>setAdjustType(v)}>
-                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="damage">Damage</SelectItem>
-                    <SelectItem value="theft">Theft</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                    <SelectItem value="correction">Correction</SelectItem>
-                    <SelectItem value="adjustment">Adjustment</SelectItem>
-                  </SelectContent>
-                </Select>
+                {adjustDirection === "add" ? (
+                  <Select value={adjustType} onValueChange={(v:any)=>setAdjustType(v)}>
+                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="restock">Restock / Purchase</SelectItem>
+                      <SelectItem value="correction">Correction (found extra)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={adjustType} onValueChange={(v:any)=>setAdjustType(v)}>
+                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="damage">Damage</SelectItem>
+                      <SelectItem value="theft">Theft</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
+                      <SelectItem value="correction">Correction</SelectItem>
+                      <SelectItem value="adjustment">Adjustment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-2">
-                <Label className="text-center block">Qty to Remove *</Label>
-                <Input type="number" min={1} max={selectedProduct?.quantity || 1} value={adjustQty} onChange={e=>setAdjustQty(parseInt(e.target.value)||1)} required className="text-center bg-white border-slate-300" />
+                <Label className="text-center block">{adjustDirection === "add" ? "Qty to Add *" : "Qty to Remove *"}</Label>
+                <Input type="number" min={0} max={adjustDirection === "remove" ? selectedProduct?.quantity || 1 : undefined} value={adjustQty} placeholder="0" onChange={e=>setAdjustQty(e.target.value)} required className="text-center bg-white border-slate-300" />
+
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-center block">Reason / Note *</Label>
-              <Input value={adjustReason} onChange={e=>setAdjustReason(e.target.value)} placeholder="e.g. 5 bottles broken during offload" required className="bg-white border-slate-300 text-center" />
+              <Label className="text-center block">{adjustDirection === "add" ? "Supplier / Note *" : "Reason / Note *"}</Label>
+              <Input value={adjustReason} onChange={e=>setAdjustReason(e.target.value)} placeholder={adjustDirection === "add" ? "e.g. Bought x qnty from x supplier" : "e.g. x qnty damaged during offload"} required className="bg-white border-slate-300 text-center" />
             </div>
             <div className="space-y-2">
               <Label className="text-center block">Responsible Person</Label>
-              <Input value={adjustResponsible} onChange={e=>setAdjustResponsible(e.target.value)} placeholder="e.g. John (loader) / CCTV" className="bg-white border-slate-300 text-center" />
+              <Input value={adjustResponsible} onChange={e=>setAdjustResponsible(e.target.value)} placeholder="e.g. Name of staff" className="bg-white border-slate-300 text-center" />
             </div>
-            <div className="bg-amber-50 p-2 rounded border border-amber-200 text-xs text-center text-amber-800">
-              Will deduct from stock and log in Inventory Movements as {adjustType} for analytics & staff audit.
+            <div className={adjustDirection === "add" ? "bg-green-50 p-2 rounded border border-green-200 text-xs text-center text-green-800" : "bg-amber-50 p-2 rounded border border-amber-200 text-xs text-center text-amber-800"}>
+              {adjustDirection === "add"
+                ? `Will ADD to stock and log in Inventory Movements as RESTOCK. New stock: ${(selectedProduct?.quantity || 0) + (parseInt(adjustQty) || 0)}`
+                : `Will deduct from stock and log in Inventory Movements as ${adjustType} for analytics & staff audit.`}
             </div>
             <DialogFooter className="sm:justify-center gap-2">
               <Button type="button" variant="outline" onClick={()=>setShowAdjustModal(false)} className="rounded">Cancel</Button>
-              <Button type="submit" disabled={adjusting} className="rounded bg-amber-600 hover:bg-amber-700 text-white">
-                {adjusting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Logging...</> : `Confirm -${adjustQty}`}
+              <Button type="submit" disabled={adjusting || (parseInt(adjustQty) || 0) <= 0} className={adjustDirection === "add" ? "rounded bg-green-600 hover:!bg-green-700 hover:!text-white text-white" : "rounded bg-amber-600 hover:!bg-amber-700 hover:!text-white text-white"}>
+                {adjusting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Logging...</> : adjustDirection === "add" ? `Confirm +${parseInt(adjustQty) || 0}` : `Confirm -${parseInt(adjustQty) || 0}`}
               </Button>
             </DialogFooter>
           </form>

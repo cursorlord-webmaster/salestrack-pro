@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [projectedProfit, setProjectedProfit] = useState(0)
   const [totalStockValue, setTotalStockValue] = useState(0)
   const [totalProducts, setTotalProducts] = useState(0)
+  const [staffOnline, setStaffOnline] = useState(0)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -124,6 +125,7 @@ export default function DashboardPage() {
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('store_id', storeId)
+      .eq('active', true)
       .lte('quantity', lowStockThreshold)
 
     setStats({
@@ -181,12 +183,14 @@ export default function DashboardPage() {
    .from('products')
    .select('*', { count: 'exact', head: true })
    .eq('store_id', storeId)
+   .eq('active', true)
     setTotalProducts(count || 0)
 
     const { data: allProductsData } = await supabase
    .from('products')
    .select('quantity, cost_price, selling_price')
    .eq('store_id', storeId)
+   .eq('active', true)
    .gt('quantity', 0)
 
     const profit = allProductsData?.reduce((sum, p) =>
@@ -196,6 +200,30 @@ export default function DashboardPage() {
     const stockValue = allProductsData?.reduce((sum, p) =>
       sum + (Number(p.quantity) * Number(p.cost_price)), 0) || 0
     setTotalStockValue(stockValue)
+
+    // Staff Online = users whose LAST audit action today is LOGIN (not LOGOUT)
+    // This matches Audit Trail exactly — no separate is_online table needed
+    const { data: auditData } = await supabase
+      .from('audit_logs')
+      .select('user_id, action, created_at')
+      .eq('store_id', storeId)
+      .gte('created_at', today.toISOString())
+      .lt('created_at', tomorrow.toISOString())
+      .order('created_at', { ascending: false })
+
+    if (auditData) {
+      const latestByUser = new Map<string, string>()
+      auditData.forEach((row: any) => {
+        if (!latestByUser.has(row.user_id)) {
+          latestByUser.set(row.user_id, row.action)
+        }
+      })
+      let online = 0
+      latestByUser.forEach((action) => {
+        if (action === 'LOGIN') online++
+      })
+      setStaffOnline(online)
+    }
 	console.timeEnd("Dashboard Load")
     setLoading(false)
   }
@@ -279,7 +307,7 @@ if (loading) {
     },
     {
       title: 'Staff Online',
-      value: 1,
+      value: staffOnline,
       icon: User,
       bgColor: 'bg-pink-50',
       iconColor: 'text-pink-700'

@@ -136,7 +136,8 @@ export async function POST(req: NextRequest) {
   items?: any[] 
 }[] = []
 
-  // 6a. Items With Small Profit
+  // 6a. Below Your Shop Average — NO fixed 15%. Benchmark = this shop's own average this period.
+  // Grouped by product so Peak Milk shows ONCE, not once per sale.
   const lowProfitItemDetails: {
     name: string
     cost_price: number
@@ -148,40 +149,50 @@ export async function POST(req: NextRequest) {
 
   let lowProfitLoss = 0
 
+  const grouped = new Map<string, { name: string; cost_price: number; unit_price: number; quantity: number; revenue: number; profit: number }>()
   allItems.forEach(item => {
     const costPrice = Number(item.cost_price)
     const unitPrice = Number(item.unit_price)
     const qty = item.quantity
-    const profitPerUnit = unitPrice - costPrice
-    const profitPerSale = unitPrice > 0 ? (profitPerUnit / unitPrice) * 100 : 0
-
-    if (profitPerSale < 15 && profitPerUnit > 0) {
-      const actualProfit = profitPerUnit * qty
-      const targetProfit = unitPrice * qty * 0.15
-      const lossForItem = Math.max(0, targetProfit - actualProfit)
-      
-      lowProfitLoss += lossForItem
-
-      lowProfitItemDetails.push({
-        name: (item.products as any)?.name || 'Unknown Item',
-        cost_price: costPrice,
-        unit_price: unitPrice,
-        quantity: qty,
-        profit_per_unit: Number(profitPerUnit.toFixed(2)),
-        total_loss: Number(lossForItem.toFixed(2))
-      })
+    const name = (item.products as any)?.name || 'Unknown Item'
+    const key = `${name}|${costPrice}|${unitPrice}`
+    if (!grouped.has(key)) {
+      grouped.set(key, { name, cost_price: costPrice, unit_price: unitPrice, quantity: 0, revenue: 0, profit: 0 })
     }
+    const g = grouped.get(key)!
+    g.quantity += qty
+    g.revenue += unitPrice * qty
+    g.profit += (unitPrice - costPrice) * qty
   })
 
+  for (const g of grouped.values()) {
+    const profitPerUnit = g.unit_price - g.cost_price
+    const profitPerSale = g.unit_price > 0 ? (profitPerUnit / g.unit_price) * 100 : 0
+    // Below YOUR average, not below 15%. Still making profit, just below your shop's average.
+    if (profitPerSale < profitOnEachSale && profitPerUnit > 0) {
+      const targetProfit = g.revenue * (profitOnEachSale / 100)
+      const missedForItem = Math.max(0, targetProfit - g.profit)
+      lowProfitLoss += missedForItem
+      lowProfitItemDetails.push({
+        name: g.name,
+        cost_price: g.cost_price,
+        unit_price: g.unit_price,
+        quantity: g.quantity,
+        profit_per_unit: Number(profitPerUnit.toFixed(2)),
+        total_loss: Number(missedForItem.toFixed(2))
+      })
+    }
+  }
+
   if (lowProfitLoss > 0) {
-    // Sort worst offenders first
+    // Sort biggest opportunity first
     lowProfitItemDetails.sort((a, b) => b.total_loss - a.total_loss)
-    
+
     profit_leaks.push({
-      item: 'Items With Small Profit',
-      reason: `${lowProfitItemDetails.length} items sold with less than ₦15 profit on each ₦100 sale`,
+      item: 'Below Your Shop Average',
+      reason: `${lowProfitItemDetails.length} products sold below your shop average of ${profitOnEachSale.toFixed(1)}% profit on each sale. They still made profit - just less than your average.`,
       loss_naira: Math.round(lowProfitLoss),
-      items: lowProfitItemDetails.slice(0, 20) // NEW: Cap at 20 items
+      items: lowProfitItemDetails.slice(0, 20)
     })
   }
 
@@ -245,7 +256,7 @@ Data for ${periodLabel}:
 - Profit per ₦100 from top category: ₦${category_profit[0]?.naira_per_100 || 0}
 - Business is: ${momentum}
 - Risk: ${risk_level}
-- Money being lost: ₦${opportunity_value.toLocaleString()}
+- Extra profit possible if below-average products reached your shop average: ₦${opportunity_value.toLocaleString()}
 
 Task 1: Write "ceo_briefing" in 4 sentences. Explain money made, profit on each sale, top category, and one advice.
 Task 2: Write "insights" array with 1-2 items. Each needs message + impact_naira. Make message simple: "Sell more X because you make ₦Y profit on every ₦100 sold"
@@ -306,8 +317,8 @@ if (insights.length === 0) {
   } else if (profit > 0) {
     insights = [{
       type: 'profit',
-      message: `You made ₦${profit.toLocaleString()} profit at ${profitOnEachSale.toFixed(1)}% profit on each sale. Aim for 15%+ to grow faster.`,
-      impact_naira: Math.round(revenue * 0.15 - profit)
+      message: `You made ₦${profit.toLocaleString()} profit at ${profitOnEachSale.toFixed(1)}% profit on each sale. Push your highest-profit products to lift your average higher.`,
+      impact_naira: Math.round(category_profit[0]?.profit * 0.2 || 0)
     }]
   } else {
     insights = [{

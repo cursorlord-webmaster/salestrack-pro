@@ -32,7 +32,6 @@ type Store = {
 type StoreSettings = {
   store_address: string | null
   store_phone: string | null
-  low_stock_threshold: number
 }
 
 export default function SettingsPage() {
@@ -52,7 +51,6 @@ export default function SettingsPage() {
   // Store form
   const [storeAddress, setStoreAddress] = useState('')
   const [storePhone, setStorePhone] = useState('')
-  const [lowStockThreshold, setLowStockThreshold] = useState(10)
   const [settingsLoading, setSettingsLoading] = useState(false)
 
   const supabase = createClient()
@@ -103,7 +101,7 @@ const { data: storeData } = await supabase
     // Fetch store settings
     const { data: settingsData } = await supabase
       .from('store_settings')
-      .select('store_address, store_phone, low_stock_threshold')
+      .select('store_address, store_phone')
       .eq('store_id', profileData.store_id)
       .single()
 
@@ -111,7 +109,6 @@ const { data: storeData } = await supabase
       setSettings(settingsData)
       setStoreAddress(settingsData.store_address || '')
       setStorePhone(settingsData.store_phone || '')
-      setLowStockThreshold(settingsData.low_stock_threshold || 10)
     }
 
     setLoading(false)
@@ -168,7 +165,6 @@ async function saveSettings() {
       store_address: storeAddress || null,
       store_phone: storePhone || null,
       store_email: profile.email, // Optional but good to populate
-      low_stock_threshold: lowStockThreshold,
       updated_at: new Date().toISOString()
     }, {
       onConflict: 'store_id' // Update if row exists, insert if not
@@ -372,26 +368,14 @@ So please copy it and keep it somewhere safe. Your store data on your private / 
         </p>
       </div>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="space-y-2">
-        <Label htmlFor="lowStock" className="text-center block">Low Stock Threshold</Label>
-        <Input
-          id="lowStock"
-          type="number"
-          value={lowStockThreshold}
-          onChange={(e) => setLowStockThreshold(parseInt(e.target.value) || 10)}
-          className="text-center"
-        />
-      </div>
-      <div className="flex items-end justify-center">
-		<Button
-          onClick={saveSettings}
-          disabled={settingsLoading}
-          className="w-full bg-green-600 hover:bg-green-700"
-        >
-          {settingsLoading ? 'Saving...' : 'Save Settings'}
-        </Button>
-      </div>
+    <div className="flex justify-center pt-2">
+      <Button
+        onClick={saveSettings}
+        disabled={settingsLoading}
+        className="w-64 bg-green-600 hover:bg-green-700"
+      >
+        {settingsLoading ? 'Saving...' : 'Save Settings'}
+      </Button>
     </div>
   </CardContent>
 </Card>

@@ -22,6 +22,7 @@ grocery: {
     "Meat, Poultry & Protein",
     "Fish & Seafood",
     "Frozen Foods",
+	"Canned Drinks",
     "Dairy, Milk & Eggs",
     "Bread & Bakery Products",
     "Cooking Oil, Fats & Shortening",
