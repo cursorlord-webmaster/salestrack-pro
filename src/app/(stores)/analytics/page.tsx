@@ -123,22 +123,20 @@ To lower your risk, check and act on what you see in "Where Your Profit Can Grow
 Example: If your profit margin is 5%, Risk Score = 100 - (5 × 4) = 80. Result: High Risk.`
   },
   opportunity: {
-    title: 'How Profit Opportunities Is Calculated',
-    body: `Profit Opportunities means extra profit you can still gain from your own sales record this period.
+    title: 'How Profit Opportunities Are Calculated',
+    body: `Profit Opportunities means extra money you can still make from your sales record this period.
 
 Formula Used:
-Opportunity Value = Missed Profit vs Your Shop Average + Value Tied Up in Slow Goods
+Opportunity Value = Missed Profit vs. Your Shop's Average Profit Margin + Value Tied Up in Your Slow-Moving Goods
 
 These are the 2 areas:
-1. Below Your Shop Average
-   Missed Profit = (Your Shop Average % × Revenue of that product) - Real Profit of that product
-   Example: Your average is 15.9%. Peak Milk made 5.7%. The gap is missed profit you can close by raising price a little or buying cheaper. You still made profit - just less than your average.
-2. Goods Not Selling
+1. Below Your Shop's Average Profit Margin:
+   Missed Profit = (Your Shop's Average Profit % × Revenue From That Product) − Actual Profit Made From That Product.
+   This shows the extra profit you could have made if the product performed like your shop's average profit margin across all sales. You still made a profit on it, just less than your usual average - which you can fix by slightly increasing your selling price or buying cheaper from your suppliers.
+2. Goods Not Selling:
    Tied-up Value = 30% of Cost Value of items unsold for 90+ days
 
-So, Profit Opportunities is the estimated Naira you can gain if you act on the suggestions on this page.
-
-Check "Key Actions This Period" to see exactly what to do.
+So, Profit Opportunities is the estimated Naira you can gain if you raised your selling price slightly or if your cost price is reduced.
 
 Example: Missed profit ₦352 + Slow goods value ₦8,400 = ₦8,752 Profit Opportunity.`
   },

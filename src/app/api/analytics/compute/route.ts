@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
 }[] = []
 
   // 6a. Below Your Shop Average — NO fixed 15%. Benchmark = this shop's own average this period.
-  // Grouped by product so Peak Milk shows ONCE, not once per sale.
+  // Grouped by product so a product shows ONCE, not once per sale.
   const lowProfitItemDetails: {
     name: string
     cost_price: number
